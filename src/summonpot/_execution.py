@@ -155,6 +155,7 @@ class _CompiledEndpoint:
     prompt_schema: _ProjectionSchema
     prompt_definitions: Mapping[str, _ProjectionSchema]
     output_model: Any
+    output_adapter: TypeAdapter[Any] | None
     output_auditor: Callable[[Any], Any] | None
     model: str | None
     method: str
@@ -1058,6 +1059,7 @@ def _compile_endpoint(
         prompt_schema=prompt_schema,
         prompt_definitions=prompt_definitions,
         output_model=endpoint.output_annotation or endpoint.output_model,
+        output_adapter=output_adapter,
         output_auditor=(
             _compile_output_auditor(output_adapter)
             if output_adapter is not None

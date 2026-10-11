@@ -31,8 +31,11 @@ The signature defines four things:
 - The Pydantic return model is the required output contract.
 
 `Annotated[RequestModel, ...]` and `Annotated[ResponseModel, ...]` retain their
-validation and schema metadata across runtime execution and HTTP. The request remains
-a flat model body, not a nested parameter wrapper. Endpoint inspection exposes the
+validation and schema metadata across runtime execution and HTTP. Application response
+validators run during runtime validation, not again during HTTP serialization. The
+transport retains the registered schema, serializers, and inert output-storage audit.
+The request remains a flat model body, not a nested parameter wrapper. Endpoint inspection
+exposes the
 underlying model classes and the full annotations separately. For direct execution,
 the operation output must be the exact response annotation, including its metadata;
 a bare model output does not satisfy an annotated response contract.

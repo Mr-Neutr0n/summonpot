@@ -58,6 +58,8 @@ Four parts, all load-bearing:
 
 `Annotated[RequestModel, ...]` and `Annotated[ResponseModel, ...]` keep their Pydantic
 metadata through runtime validation and the generated OpenAPI request/response schemas.
+Response validators run during runtime validation, not again during HTTP serialization;
+the transport preserves the registered serializers and inert output-storage audit.
 Use these annotations when attaching constraints or schema descriptions; the underlying
 models remain available through endpoint inspection. Direct execution requires the exact
 response annotation, including its metadata, as the operation output contract. Business

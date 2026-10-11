@@ -22,6 +22,8 @@ def test_skill_documents_annotated_endpoint_metadata():
     body = " ".join(skill_body().split())
     assert "Annotated[RequestModel, ...]" in body
     assert "Annotated[ResponseModel, ...]" in body
+    assert "not again during HTTP serialization" in body
+    assert "registered serializers and inert output-storage audit" in body
     assert "exact response annotation, including its metadata" in body
     assert "`self` or `cls` remain ordinary request fields" in body
 
