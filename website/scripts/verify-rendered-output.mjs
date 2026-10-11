@@ -9,8 +9,9 @@ const requiredPosthogConfig = [
   "person_profiles:'identified_only'",
   "capture_pageview:true",
   "capture_pageleave:true",
-  "dom_event_allowlist:['click']",
-  "element_allowlist:['a','button']",
+  "autocapture:false",
+  "advanced_disable_flags:true",
+  "capture_performance:true",
   "disable_session_recording:true",
 ];
 
