@@ -2090,3 +2090,39 @@ def test_an_invalid_retry_count_never_reaches_registration_or_a_request():
     assert summon._runtime.retries == 0
     client = TestClient(build_app(summon), raise_server_exceptions=False)
     assert client.post("/ping").status_code == 200
+
+
+def test_preparation_overrun_expires_deadline_before_direct_effect(monkeypatch):
+    import summonpot.runtime as runtime_module
+
+    started = 0
+
+    def perform(query: str) -> DirectCustomerResponse:
+        nonlocal started
+        started += 1
+        return DirectCustomerResponse(customer_id=UUID(int=1), include_history=False)
+
+    operation = Operation(
+        perform, bind={"query": FromRequest("query")}, output=DirectCustomerResponse
+    )
+    summon = Summon("svc")
+
+    @summon("/deadline")
+    def endpoint(
+        request: ResearchRequest, result=Required(operation, calls=Exactly(1))
+    ) -> DirectCustomerResponse:
+        """Return the operation result."""
+        ...
+
+    original = runtime_module._prepare_request
+
+    def slow_prepare(plan, params):
+        time.sleep(0.03)
+        return original(plan, params)
+
+    monkeypatch.setattr(runtime_module, "_prepare_request", slow_prepare)
+    with pytest.raises(TimeoutError):
+        asyncio.run(
+            Runtime(timeout=0.01).call(summon.endpoints[0], {"query": "ok", "value": 1})
+        )
+    assert started == 0

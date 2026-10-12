@@ -425,9 +425,7 @@ summon = Summon(
 `Summon(model=...)` sets the default model instead; the two are mutually exclusive,
 because a supplied runtime already carries its own.
 
-The timeout releases the caller on the deadline, but it **cannot interrupt a
-synchronous capability already running in a worker thread** — a write started before
-the deadline still completes. Give such a capability its own internal deadline.
+One monotonic deadline covers runtime request preparation, execution, and final output validation. HTTP body parsing and request validation occur before the route handler and are outside this runtime deadline. Synchronous preparation/finalization cannot be forcibly preempted; after each returns, the runtime checks the same deadline before starting effects or returning output. Async cancellation is cooperative, and synchronous capabilities running in worker threads can continue after timeout. A timeout therefore means the outcome may be unknown, not that no effect happened. Use application-level deadlines/idempotency for irreversible work; the runtime does not retry or switch to a model after an effect starts.
 
 ## Failure responses
 

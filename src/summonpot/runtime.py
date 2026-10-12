@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import inspect
 import json
@@ -288,47 +289,67 @@ class Runtime:
         endpoint: EndpointDef,
         params: Mapping[str, Any],
     ) -> Any:
-        """Run an endpoint with provider-neutral tools and typed output."""
+        """Run one endpoint under a single deadline, including runtime preparation."""
+        deadline = (
+            None
+            if self.timeout is None
+            else asyncio.get_running_loop().time() + self.timeout
+        )
+        async with asyncio.timeout(self.timeout):
+            return await self._call_with_deadline(endpoint, params, deadline)
+
+    async def _call_with_deadline(
+        self,
+        endpoint: EndpointDef,
+        params: Mapping[str, Any],
+        deadline: float | None,
+    ) -> Any:
+        """Execute inside ``call``'s request-scoped absolute timeout context."""
+
+        def check_deadline() -> None:
+            if deadline is not None and asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError
+
         plan = self._plan_for(endpoint)
         request = _prepare_request(plan, params)
         run = _new_run(plan, request)
+        check_deadline()
         if plan.direct_tool is not None:
-            async with asyncio.timeout(self.timeout):
-                return await _invoke_bound_operation(
-                    plan.tools[plan.direct_tool],
-                    run,
-                    {},
-                    redact_application_error=_http_error_boundary.get(),
-                )
+            result = await _invoke_bound_operation(
+                plan.tools[plan.direct_tool],
+                run,
+                {},
+                redact_application_error=_http_error_boundary.get(),
+            )
+            check_deadline()
+            return result
 
         agent = self._agent_for(endpoint)
         message = self._build_user_message(plan, request)
+        check_deadline()
         try:
-            async with asyncio.timeout(self.timeout):
-                result = await agent.run(
-                    message, deps=run, usage_limits=self.usage_limits
-                )
+            result = await agent.run(message, deps=run, usage_limits=self.usage_limits)
         except Exception:
             if run.application_failure:
                 raise _OperationExecutionError(
                     "A declared application operation failed."
                 ) from None
             raise
+        check_deadline()
         output = result.output
 
         if plan.output_model is not None:
             assert plan.output_auditor is not None
             try:
-                return plan.output_auditor(output)
+                output = plan.output_auditor(output)
             except Exception:
                 raise _OperationOutputError(
                     "Endpoint output did not satisfy its declared contract."
                 ) from None
-        if plan.return_type.lower() not in ("str", "string", "any"):
-            try:
-                return json.loads(output)
-            except (json.JSONDecodeError, TypeError):
-                return output
+        elif plan.return_type.lower() not in ("str", "string", "any"):
+            with contextlib.suppress(json.JSONDecodeError, TypeError):
+                output = json.loads(output)
+        check_deadline()
         return output
 
     def _agent_for(self, endpoint: EndpointDef) -> Agent[_EndpointRun, Any]:

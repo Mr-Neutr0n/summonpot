@@ -144,9 +144,7 @@ alias, and canonical-value semantics as HTTP without rerunning the HTTP adapter'
 validation. Parameterless endpoints compile an explicit empty raw contract, rejecting
 undeclared keys before application hooks or model execution.
 
-This release does not add result chains, broader deterministic execution, stable typed
-operation-failure mappings, or end-to-end deadline semantics. Those remain in the milestones
-below.
+This release does not add result chains, broader deterministic execution, or end-to-end deadline semantics. Stable failure-boundary handling is shipped; deadline coverage remains the final boundary contract in milestone 1 below.
 
 ## Next milestones
 
@@ -158,16 +156,18 @@ public graph, or handler body.
 
 ### 1. Contract enforcement and input/output hardening
 
-Finish the two remaining boundary contracts before adding result chains. The completed 0.9.0
-admission, transport, and namespace boundary above remains the baseline:
+Finish the remaining deadline contract before adding result chains. The completed 0.9.0
+admission, transport, namespace, and stable failure-boundary work remains the baseline:
 
-- Define the deadline across request preparation, execution, and finalization; check it before
-  starting effects. Document that synchronous application code cannot be forcibly stopped by
-  an asyncio timeout and that a timeout does not prove an effect did not occur.
+- One monotonic deadline covers runtime request preparation, execution, and finalization;
+  check it before starting effects. HTTP body parsing and request validation precede handler
+  execution and are explicitly outside this runtime deadline.
+- Document that synchronous preparation/finalization cannot be preempted and synchronous
+  capability workers cannot be forcibly stopped; a timeout is not proof that an effect did
+  not occur.
 
-Acceptance requires real HTTP probes for stable failure classification, sensitive failure
-logging, preparation and finalization timeouts, the pre-effect deadline check, and uncertain
-outcomes after synchronous work has started.
+Acceptance requires real localhost HTTP probes for runtime preparation/finalization timeout,
+the pre-effect deadline check, and uncertain outcomes after synchronous work has started.
 
 ### 2. Validated result chains and failure semantics
 

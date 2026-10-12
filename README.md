@@ -643,11 +643,7 @@ summon = Summon(
 
 Framework-owned failures return fixed messages. Normal logs contain allowlisted endpoint/failure categories only; they do not include exception text, chains, provider bodies, prompts, outputs, validation inputs, or capability arguments/results. HTTP request-validation `422` responses are also redacted to avoid echoing invalid input.
 
-The timeout bounds how long summonpot waits. It cannot terminate a synchronous capability
-already running in a worker thread, so give irreversible or long-running operations an
-internal deadline and idempotency policy of their own. Open thread-affine resources such
-as default SQLite connections inside the capability call rather than capturing them
-outside it.
+One monotonic request deadline covers runtime request preparation, model/capability execution, and final output validation. Synchronous preparation or validation cannot be preempted; after they return, the runtime checks the same deadline before starting effects or returning output. HTTP body parsing and FastAPI request validation happen before the route handler and are outside this runtime deadline. Async cancellation is cooperative. A timed-out synchronous capability running in a worker thread can continue and complete its side effect after the caller receives a timeout, so timeout is an uncertain outcome—not evidence that no effect occurred. Use application-level deadlines/idempotency for irreversible work; summonpot never retries a capability or falls back to a model after the direct effect starts.
 
 Summonpot currently has no authentication layer. Bind local development to `127.0.0.1`.
 Before exposing a service, put authentication in front of it and configure runtime limits.

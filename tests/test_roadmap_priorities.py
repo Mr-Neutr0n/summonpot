@@ -30,8 +30,8 @@ def test_remaining_failure_and_deadline_work_precedes_execution_expansion():
     ):
         assert completed in shipped
     for remaining in (
-        "deadline across request preparation, execution, and finalization",
-        "synchronous application code cannot be forcibly stopped",
+        "One monotonic deadline covers runtime request preparation, execution, and finalization",
+        "synchronous capability workers cannot be forcibly stopped",
     ):
         assert remaining in hardening
 
