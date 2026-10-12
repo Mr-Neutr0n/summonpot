@@ -8,6 +8,7 @@ import contextvars
 import inspect
 import json
 import os
+import time
 from collections.abc import Mapping
 from typing import Any
 
@@ -41,7 +42,7 @@ _runtime_deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar
 
 def _check_runtime_deadline() -> None:
     deadline = _runtime_deadline.get()
-    if deadline is not None and asyncio.get_running_loop().time() >= deadline:
+    if deadline is not None and time.monotonic() >= deadline:
         raise TimeoutError
 
 
@@ -211,7 +212,12 @@ async def _call_capability(fn: Any, *args: Any, **kwargs: Any) -> Any:
     """Run sync and async application callables without blocking the event loop."""
     if inspect.iscoroutinefunction(fn):
         return await fn(*args, **kwargs)
-    result = await asyncio.to_thread(fn, *args, **kwargs)
+
+    def invoke_sync() -> Any:
+        _check_runtime_deadline()
+        return fn(*args, **kwargs)
+
+    result = await asyncio.to_thread(invoke_sync)
     if inspect.isawaitable(result):
         return await result
     return result
@@ -302,11 +308,7 @@ class Runtime:
         params: Mapping[str, Any],
     ) -> Any:
         """Run one endpoint under a single deadline, including runtime preparation."""
-        deadline = (
-            None
-            if self.timeout is None
-            else asyncio.get_running_loop().time() + self.timeout
-        )
+        deadline = None if self.timeout is None else time.monotonic() + self.timeout
         token = _runtime_deadline.set(deadline)
         try:
             async with asyncio.timeout(self.timeout):
@@ -323,7 +325,7 @@ class Runtime:
         """Execute inside ``call``'s request-scoped absolute timeout context."""
 
         def check_deadline() -> None:
-            if deadline is not None and asyncio.get_running_loop().time() >= deadline:
+            if deadline is not None and time.monotonic() >= deadline:
                 raise TimeoutError
 
         plan = self._plan_for(endpoint)

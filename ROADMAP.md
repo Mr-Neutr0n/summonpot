@@ -144,7 +144,7 @@ alias, and canonical-value semantics as HTTP without rerunning the HTTP adapter'
 validation. Parameterless endpoints compile an explicit empty raw contract, rejecting
 undeclared keys before application hooks or model execution.
 
-This release does not add result chains, broader deterministic execution, or end-to-end deadline semantics. Stable failure-boundary handling is shipped; deadline coverage remains the final boundary contract in milestone 1 below.
+This release does not add result chains or broader deterministic execution. Stable failure-boundary handling and end-to-end runtime deadline semantics are shipped; remaining milestone 1 work is result-chain enforcement.
 
 ## Next milestones
 
@@ -166,8 +166,7 @@ admission, transport, namespace, and stable failure-boundary work remains the ba
   capability workers cannot be forcibly stopped; a timeout is not proof that an effect did
   not occur.
 
-Acceptance requires real localhost HTTP probes for runtime preparation/finalization timeout,
-the pre-effect deadline check, and uncertain outcomes after synchronous work has started.
+Acceptance requires real localhost HTTP probes for the pre-effect deadline check and uncertain outcomes after synchronous work has started; runtime tests also cover preparation/finalization timeouts.
 
 ### 2. Validated result chains and failure semantics
 
