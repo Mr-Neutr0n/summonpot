@@ -26,7 +26,9 @@ logger = logging.getLogger("summonpot.server")
 
 def build_app(summon: Summon) -> Any:
     """Build a FastAPI application from a Summon instance."""
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Request
+    from fastapi.exceptions import RequestValidationError
+    from fastapi.responses import JSONResponse
 
     app = FastAPI(
         title=summon.name,
@@ -36,6 +38,27 @@ def build_app(summon: Summon) -> Any:
         ),
         version=__version__,
     )
+
+    @app.exception_handler(RequestValidationError)
+    async def redact_request_validation(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        del request, exc
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "Request did not satisfy the endpoint input contract."},
+        )
+
+    @app.middleware("http")
+    async def redact_unhandled_failure(request: Request, call_next: Any) -> Any:
+        try:
+            return await call_next(request)
+        except Exception:
+            logger.error("Unhandled request failure")
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Endpoint failed while executing its contract."},
+            )
 
     # Pair each public endpoint with the metadata that will actually be served,
     # then validate *that*. Registration-time metadata is authoritative for
@@ -259,7 +282,11 @@ async def _run_endpoint(summon: Any, endpoint: Any, params: dict[str, Any]) -> A
         UserError,
     )
 
-    from summonpot.runtime import _OperationInputError
+    from summonpot.runtime import (
+        _OperationExecutionError,
+        _OperationInputError,
+        _OperationOutputError,
+    )
 
     try:
         return await summon._runtime.call(endpoint, params)
@@ -272,58 +299,57 @@ async def _run_endpoint(summon: Any, endpoint: Any, params: dict[str, Any]) -> A
             status_code=422,
             detail="Request data did not satisfy a receiving operation contract.",
         ) from None
-    except UsageLimitExceeded as exc:
-        # Details are logged, never returned: an exception raised inside the agent
-        # loop can carry rejected model output or tool-call context, and the HTTP
-        # response is the one surface an untrusted caller reads.
-        logger.warning(
-            "Endpoint %s exceeded its usage limit", endpoint.path, exc_info=exc
-        )
+    except UsageLimitExceeded:
+        logger.warning("Endpoint %s exceeded its usage limit", endpoint.path)
         raise HTTPException(
             status_code=429,
             detail="Endpoint exceeded its configured usage limit.",
-        ) from exc
-    except TimeoutError as exc:
-        logger.warning("Endpoint %s timed out", endpoint.path, exc_info=exc)
+        ) from None
+    except TimeoutError:
+        logger.warning("Endpoint %s timed out", endpoint.path)
         raise HTTPException(
             status_code=504,
             detail="Endpoint timed out before producing a valid response.",
-        ) from exc
+        ) from None
     except ModelHTTPError as exc:
-        logger.warning(
-            "Endpoint %s failed against the model provider", endpoint.path, exc_info=exc
-        )
+        status = exc.status_code if type(exc.status_code) is int else 0
+        logger.warning("Endpoint %s failed against the model provider", endpoint.path)
         # A provider rate limit is the one upstream status a caller can act on.
-        status_code = 429 if exc.status_code == 429 else 502
+        status_code = 429 if status == 429 else 502
         raise HTTPException(
             status_code=status_code,
-            detail=f"Model provider request failed with status {exc.status_code}.",
-        ) from exc
-    except UserError as exc:
-        # The provider rejected its own configuration - almost always a missing or
-        # wrong API key. That is an operator problem, not a caller problem, so the
-        # guidance goes to the log and the caller gets a stable 500.
-        logger.error(
-            "Endpoint %s is not configured; the model provider rejected the "
-            "configuration. This is usually a missing API key for the selected "
-            "model. Set SUMMONPOT_MODEL=test to run without a provider account.",
-            endpoint.path,
-            exc_info=exc,
-        )
+            detail=f"Model provider request failed with status {status}.",
+        ) from None
+    except UserError:
+        logger.error("Endpoint %s is not configured", endpoint.path)
         raise HTTPException(
             status_code=500,
             detail="Endpoint is not configured. See the server logs.",
-        ) from exc
-    except UnexpectedModelBehavior as exc:
-        logger.warning(
-            "Endpoint %s did not satisfy its contract", endpoint.path, exc_info=exc
-        )
+        ) from None
+    except _OperationExecutionError:
+        logger.error("Endpoint %s application operation failed", endpoint.path)
+        raise HTTPException(
+            status_code=500,
+            detail="A declared application operation failed.",
+        ) from None
+    except _OperationOutputError:
+        logger.warning("Endpoint %s returned invalid operation output", endpoint.path)
         raise HTTPException(
             status_code=502,
-            detail=(
-                "Model did not satisfy the endpoint contract within the retry budget."
-            ),
-        ) from exc
+            detail="Operation output did not satisfy its declared contract.",
+        ) from None
+    except UnexpectedModelBehavior:
+        logger.warning("Endpoint %s did not satisfy its contract", endpoint.path)
+        raise HTTPException(
+            status_code=502,
+            detail="Model did not satisfy the endpoint contract within the retry budget.",
+        ) from None
+    except Exception:
+        logger.error("Endpoint %s failed during execution", endpoint.path)
+        raise HTTPException(
+            status_code=500,
+            detail="Endpoint failed while executing its contract.",
+        ) from None
 
 
 def _body_parameters(endpoint: Any) -> list[Any]:

@@ -446,6 +446,81 @@ def test_unexpected_capability_failure_still_surfaces_as_a_server_error():
     assert client.post("/research", json={"query": "agents"}).status_code == 500
 
 
+def test_unexpected_runtime_failure_is_redacted_from_response_and_logs(caplog):
+    summon = Summon("svc")
+
+    @summon("/research")
+    def research(query: str) -> str:
+        """Research a topic."""
+        return ""
+
+    class FailingRuntime:
+        async def call(self, endpoint, params):
+            try:
+                raise ValueError("PRIVATE_VALIDATION_INPUT_PROVIDER_BODY")
+            except ValueError as error:
+                raise RuntimeError("outer SECRET_EXCEPTION_CHAIN") from error
+
+    summon._runtime = FailingRuntime()
+    client = TestClient(build_app(summon), raise_server_exceptions=False)
+
+    with caplog.at_level(logging.WARNING, logger="summonpot.server"):
+        response = client.post("/research", json={"query": "safe"})
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Endpoint failed while executing its contract."
+    }
+    assert "PRIVATE_VALIDATION_INPUT_PROVIDER_BODY" not in response.text + caplog.text
+    assert "SECRET_EXCEPTION_CHAIN" not in response.text + caplog.text
+
+
+def test_malformed_request_422_does_not_echo_sensitive_input(caplog):
+    summon = Summon("svc")
+
+    @summon("/research")
+    def research(query: int) -> str:
+        """Research a topic."""
+        return ""
+
+    client = TestClient(build_app(summon))
+    private = "PRIVATE_REQUEST_VALIDATION_VALUE"
+    response = client.post("/research", json={"query": private})
+    assert response.status_code == 422
+    assert private not in response.text
+
+
+def test_direct_operation_failure_is_redacted_as_application_failure(caplog):
+    summon = Summon("svc")
+
+    def fail(value: int) -> DirectResponse:
+        raise ValueError("PRIVATE_PROVIDER_BODY PRIVATE_INPUT")
+
+    operation = Operation(
+        fail,
+        bind={"value": FromRequest("value")},
+        output=DirectResponse,
+    )
+
+    @summon("/direct")
+    def direct(
+        request: DirectRequest, result=Required(operation, calls=Exactly(1))
+    ) -> DirectResponse:
+        """Run one direct operation."""
+        ...
+
+    client = TestClient(build_app(summon), raise_server_exceptions=False)
+    with caplog.at_level(logging.ERROR, logger="summonpot.server"):
+        response = client.post("/direct", json={"value": 3})
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Endpoint failed while executing its contract."
+    }
+    assert "PRIVATE_PROVIDER_BODY" not in response.text + caplog.text
+    assert "PRIVATE_INPUT" not in response.text + caplog.text
+
+
 def test_build_app_requires_body_fields(mock_runtime):
     summon = mock_runtime()
 
@@ -526,8 +601,8 @@ def test_runtime_exception_text_is_not_returned_to_the_caller(raised, caplog):
         response = client.post("/research", json={"query": "agents"})
 
     assert "PRIVATE_CUSTOMER_RECORD_123" not in response.text
-    # The operator still gets the detail.
-    assert "PRIVATE_CUSTOMER_RECORD_123" in caplog.text
+    # The ordinary logger records only the allowlisted endpoint and failure class.
+    assert "PRIVATE_CUSTOMER_RECORD_123" not in caplog.text
 
 
 def test_get_endpoint_is_registered_as_get_with_query_parameters(mock_runtime):
@@ -793,10 +868,10 @@ def test_provider_misconfiguration_is_reported_not_swallowed(caplog):
         response.json()["detail"] == "Endpoint is not configured. See the server logs."
     )
     assert "OPENAI_API_KEY" not in response.text
-    # The operator gets the diagnosis and a way forward.
+    # Normal logs deliberately omit provider diagnostics and exception text.
     assert "not configured" in caplog.text
-    assert "SUMMONPOT_MODEL=test" in caplog.text
-    assert "OPENAI_API_KEY" in caplog.text
+    assert "SUMMONPOT_MODEL=test" not in caplog.text
+    assert "OPENAI_API_KEY" not in caplog.text
 
 
 # --- #78: the URL is the single authority for a path parameter ---------------

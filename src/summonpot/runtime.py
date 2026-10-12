@@ -37,6 +37,10 @@ class _OperationInputError(RuntimeError):
     """An injected value failed the receiving capability parameter contract."""
 
 
+class _OperationExecutionError(RuntimeError):
+    """Application capability failed; its exception details are untrusted."""
+
+
 def _tracked_operation(tool: _CompiledTool) -> Any:
     """Build a model tool backed by one immutable compiled capability."""
     visible_signature = tool.visible_signature
@@ -83,6 +87,8 @@ async def _invoke_bound_operation(
     tool: _CompiledTool,
     run: _EndpointRun,
     supplied: Mapping[str, Any],
+    *,
+    redact_application_error: bool = True,
 ) -> Any:
     """Invoke one enforced operation through the shared trusted-value kernel."""
     values = dict(supplied)
@@ -117,7 +123,14 @@ async def _invoke_bound_operation(
         state.running += 1
 
     try:
-        result = await _call_with_values(tool, values)
+        try:
+            result = await _call_with_values(tool, values)
+        except Exception:
+            if redact_application_error:
+                raise _OperationExecutionError(
+                    "A declared application operation failed."
+                ) from None
+            raise
         assert tool.output_validator is not None
         try:
             validated = tool.output_validator.validate_python(result)
@@ -263,7 +276,10 @@ class Runtime:
         if plan.direct_tool is not None:
             async with asyncio.timeout(self.timeout):
                 return await _invoke_bound_operation(
-                    plan.tools[plan.direct_tool], run, {}
+                    plan.tools[plan.direct_tool],
+                    run,
+                    {},
+                    redact_application_error=False,
                 )
 
         agent = self._agent_for(endpoint)
@@ -274,7 +290,12 @@ class Runtime:
 
         if plan.output_model is not None:
             assert plan.output_auditor is not None
-            return plan.output_auditor(output)
+            try:
+                return plan.output_auditor(output)
+            except Exception:
+                raise _OperationOutputError(
+                    "Endpoint output did not satisfy its declared contract."
+                ) from None
         if plan.return_type.lower() not in ("str", "string", "any"):
             try:
                 return json.loads(output)

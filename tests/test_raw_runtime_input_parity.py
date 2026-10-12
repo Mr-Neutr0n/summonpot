@@ -462,7 +462,7 @@ def test_custom_init_exact_storage_with_hostile_key_fails_before_equality():
     )
 
     assert response.status_code == 500
-    assert response.text == "Internal Server Error"
+    assert response.text == '{"detail":"Endpoint failed while executing its contract."}'
     assert raw_received == []
     assert http_received == []
     assert hooks == []
@@ -1910,7 +1910,7 @@ def test_typed_dict_union_rejects_hostile_keys_without_equality_hooks():
     )
 
     assert response.status_code == 500
-    assert response.text == "Internal Server Error"
+    assert response.text == '{"detail":"Endpoint failed while executing its contract."}'
     assert hooks == []
     assert model_calls == []
 

@@ -1012,7 +1012,7 @@ def test_http_rejects_colliding_extra_before_response_serialization():
     response = TestClient(build_app(summon), raise_server_exceptions=False).post(
         "/output", json={"value": 7}
     )
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert "hostile" not in response.text
 
 
@@ -1048,7 +1048,7 @@ def test_http_rejects_post_validation_empty_alias_collision(output: Any, result:
     response = TestClient(build_app(summon), raise_server_exceptions=False).post(
         "/output", json={"value": 7}
     )
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert "hostile" not in response.text
 
 
@@ -1066,7 +1066,7 @@ def test_http_empty_alias_collision_rejection_does_not_call_object_hooks():
     response = TestClient(build_app(summon), raise_server_exceptions=False).post(
         "/output", json={"value": 7}
     )
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert EMPTY_ALIAS_HOOKS == []
 
 
@@ -1116,7 +1116,7 @@ def test_http_rejects_nested_dataclass_post_validation_collision(
         raise_server_exceptions=False,
     ).post("/output", json={"value": 7})
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert "hostile" not in response.text
 
 
@@ -1147,7 +1147,7 @@ def test_http_rejects_nested_collision_inside_dataclass_subclass():
         "/output", json={"value": 7}
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert response.text.count('"wireValue"') == 0
     assert DATACLASS_SUBCLASS_HOOKS == []
 
@@ -1178,7 +1178,7 @@ def test_http_rejects_typed_model_extra_collision_inside_dataclass_subclass():
         "/output", json={"value": 7}
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert response.text.count('"wireValue"') == 0
     assert DATACLASS_SUBCLASS_HOOKS == []
 
@@ -1209,7 +1209,7 @@ def test_http_rejects_untyped_model_extra_collision_inside_dataclass_subclass():
         "/output", json={"value": 7}
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert response.text.count('"wireValue"') == 0
     assert DATACLASS_SUBCLASS_HOOKS == []
 
@@ -1225,7 +1225,7 @@ def test_http_model_extra_property_cannot_hide_nested_collision():
         "/output", json={"value": 7}
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert response.text.count('"wireValue"') == 0
     assert MODEL_EXTRA_STORAGE_HOOKS == []
 
@@ -1241,7 +1241,7 @@ def test_http_model_dict_property_cannot_hide_nested_collision():
         "/output", json={"value": 7}
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert response.text.count('"wireValue"') == 0
     assert MODEL_DICT_STORAGE_HOOKS == []
 
@@ -2201,7 +2201,7 @@ def test_runtime_and_http_reject_nonexact_string_keys_without_hooks(
     response = TestClient(build_app(summon), raise_server_exceptions=False).post(
         "/output", json={"value": 7}
     )
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert NONEXACT_KEY_HOOKS == []
 
 
@@ -2267,7 +2267,7 @@ def test_http_rejects_prevalidated_model_nested_typed_dict_alias_collision():
         "/output", json={"value": 7}
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert '"wireValue":7,"wireValue":99' not in response.text
 
 
@@ -2701,7 +2701,7 @@ def test_runtime_and_http_reject_tagged_dataclass_collision_branch(
     response = TestClient(build_app(summon), raise_server_exceptions=False).post(
         "/output", json={"value": 7}
     )
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert "wireValue" not in response.text
 
 
@@ -2726,7 +2726,7 @@ def test_runtime_and_http_reject_tagged_union_selected_branch_collision(output: 
     response = TestClient(build_app(summon), raise_server_exceptions=False).post(
         "/output", json={"value": 7}
     )
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert "wireValue" not in response.text
 
 
@@ -2750,7 +2750,7 @@ def test_http_rejects_generator_replacement_before_serialization_or_iteration():
         "/output", json={"value": 7}
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert "wireValue" not in response.text
     assert CONTAINER_REPLACEMENT_HOOKS == []
 
@@ -2769,7 +2769,7 @@ def test_http_rejects_parent_validator_nested_deque_collision():
     response = TestClient(build_app(summon), raise_server_exceptions=False).post(
         "/output", json={"value": 7}
     )
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert "wireValue" not in response.text
 
 
@@ -2800,7 +2800,7 @@ def test_http_rejects_deque_subclass_without_calling_hooks():
         "/output", json={"value": 7}
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert DEQUE_AUDIT_HOOKS == []
 
 
@@ -2824,7 +2824,7 @@ def test_http_rejects_parent_validator_nested_output_collision(
     response = TestClient(build_app(summon), raise_server_exceptions=False).post(
         "/output", json={"value": 7}
     )
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert "wireValue" not in response.text
 
 
@@ -3036,7 +3036,7 @@ def test_agent_endpoint_output_rejects_alias_shadowing_before_http_serialization
         "/agent-output", json={"value": 7}
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert response.text.count('"wireValue"') == 0
 
 
@@ -3085,7 +3085,7 @@ def test_missing_required_typed_dict_field_cannot_disable_collision_audit():
     response = TestClient(build_app(http), raise_server_exceptions=False).post(
         "/output", json={"value": 7}
     )
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert response.text.count('"alphaWire"') == 0
 
 
@@ -3110,7 +3110,7 @@ def test_runtime_model_in_untyped_extra_cannot_own_duplicate_emitted_keys():
         "/output", json={"value": 7}
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 502
     assert response.text.count('"value"') == 0
 
 
@@ -3172,7 +3172,7 @@ def test_runtime_model_namespace_audit_bypasses_application_metaclass(
 
     assert hooks == []
     if colliding:
-        assert response.status_code == 500
+        assert response.status_code == 502
         assert response.text.count('"wire"') == 0
     else:
         assert response.status_code == 200, response.text

@@ -35,7 +35,7 @@ The current release line provides:
 - Declarative dependency parameters that never become HTTP fields.
 - Bounded retries when model output is invalid or required use is missing.
 - Configurable request, token, cost, and timeout limits for each endpoint call.
-- Redacted HTTP mappings for usage limits, timeouts, provider failures, and unsatisfied model contracts.
+- Stable redacted failure handling: malformed HTTP requests and receiving-operation input failures return fixed `422` responses; invalid operation output, model/provider failures, timeouts, and application failures keep distinct status categories. Normal logs use allowlisted endpoint/failure fields only and omit exception text/chains, provider bodies, validation input, prompts, output, and capability data. This is failure-boundary hardening only; it does not redesign deadlines or add result chains.
 - GET, POST, PUT, PATCH, DELETE, and HEAD routing with validated body or query contracts.
 - Stable OpenAPI `operationId` values derived from each endpoint's declared name and HTTP
   method, with registration-time collision rejection.
@@ -161,8 +161,6 @@ public graph, or handler body.
 Finish the two remaining boundary contracts before adding result chains. The completed 0.9.0
 admission, transport, and namespace boundary above remains the baseline:
 
-- Map operation contract failures to stable redacted HTTP errors. Normal logs must not include
-  sensitive validation inputs, provider bodies, or exception chains.
 - Define the deadline across request preparation, execution, and finalization; check it before
   starting effects. Document that synchronous application code cannot be forcibly stopped by
   an asyncio timeout and that a timeout does not prove an effect did not occur.

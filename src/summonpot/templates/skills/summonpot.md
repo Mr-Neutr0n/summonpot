@@ -433,13 +433,13 @@ the deadline still completes. Give such a capability its own internal deadline.
 
 | Status | Meaning |
 |---|---|
-| `422` | request failed validation against the declared models |
-| `429` | the endpoint exceeded its configured usage limit |
-| `502` | the model failed to satisfy the contract, or the provider failed |
+| `422` | request validation failed, or a validated request value failed a receiving operation contract |
+| `429` | the endpoint exceeded its configured usage limit, or the provider rate-limited it |
+| `502` | the model failed to satisfy its contract, the provider failed, or operation output failed validation |
 | `504` | the endpoint exceeded its timeout |
-| `500` | provider misconfiguration, or an error inside a capability |
+| `500` | provider misconfiguration or application capability failure |
 
-Response bodies never carry model output or provider text; details go to the server log.
+Bodies use fixed messages. Normal logs include only allowlisted endpoint and failure categories; exception text and chains, provider bodies, validation inputs, prompts, outputs, and capability data are omitted. HTTP request-validation errors are redacted too. These mappings do not imply redesigned deadline or result-chain semantics.
 
 ## Writing capabilities
 
