@@ -146,6 +146,8 @@ try {
   await page.waitForTimeout(1050);
   check(await cleared(page), "cancelled timers changed reset state");
 
+  // Analytics start/completion may throw; the browser-local operation must still succeed.
+  await page.evaluate(() => { window.posthog = { capture() { throw new Error("analytics offline"); } }; });
   await run();
   await waitDone();
   check(

@@ -49,6 +49,14 @@ try {
   await page.goto(`${origin}/playground/?utm_source=CANARY_QUERY&gclid=CANARY_QUERY_GCLID#CANARY_HASH`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(5000);
   const init = await page.evaluate(() => ({ config: window.posthog?.config, recording: window.posthog?.config?.disable_session_recording }));
+  await page.locator('#customer-form').evaluate(form => form.requestSubmit());
+  await page.waitForFunction(() => document.querySelector('#result-title')?.textContent !== 'Ready to run');
+  await page.waitForTimeout(4500);
+  const outcomeEvents = requests.flatMap(x => (Array.isArray(x.payload?.batch) ? x.payload.batch : Array.isArray(x.payload) ? x.payload : [x.payload]).filter(Boolean)).filter(x => x.event === 'playground_preview_started' || x.event === 'playground_preview_completed');
+  assert.deepEqual(outcomeEvents.map(x => x.event), ['playground_preview_started', 'playground_preview_completed']);
+  assert.deepEqual(outcomeEvents.map(x => [x.properties.project, x.properties.mode]), [['summonpot','bounded-operation'],['summonpot','bounded-operation']]);
+  assert.equal(outcomeEvents[0].properties.attempt_id, outcomeEvents[1].properties.attempt_id);
+  assert.ok(!JSON.stringify(requests).includes('customer-7'), 'editable customer identifier must not leave the browser');
   await page.goto(`${origin}/quick-start/?utm_source=CANARY_NAV&gclid=CANARY_NAV_GCLID#CANARY_NAV_HASH`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(4000);
   const afterNavigation = requests.flatMap(x => (Array.isArray(x.payload?.batch) ? x.payload.batch : Array.isArray(x.payload) ? x.payload : [x.payload]).filter(Boolean));
