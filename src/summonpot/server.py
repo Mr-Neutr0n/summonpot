@@ -283,6 +283,7 @@ async def _run_endpoint(summon: Any, endpoint: Any, params: dict[str, Any]) -> A
     )
 
     from summonpot.runtime import (
+        _ApplicationOperationTimeout,
         _OperationExecutionError,
         _OperationInputError,
         _OperationOutputError,
@@ -304,6 +305,12 @@ async def _run_endpoint(summon: Any, endpoint: Any, params: dict[str, Any]) -> A
         raise HTTPException(
             status_code=429,
             detail="Endpoint exceeded its configured usage limit.",
+        ) from None
+    except _ApplicationOperationTimeout:
+        logger.error("Endpoint %s application operation failed", endpoint.path)
+        raise HTTPException(
+            status_code=500,
+            detail="A declared application operation failed.",
         ) from None
     except TimeoutError:
         logger.warning("Endpoint %s timed out", endpoint.path)

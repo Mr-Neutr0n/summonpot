@@ -41,6 +41,10 @@ class _OperationExecutionError(RuntimeError):
     """Application capability failed; its exception details are untrusted."""
 
 
+class _ApplicationOperationTimeout(TimeoutError):
+    """An application operation raised TimeoutError (not the runtime deadline)."""
+
+
 def _tracked_operation(tool: _CompiledTool) -> Any:
     """Build a model tool backed by one immutable compiled capability."""
     visible_signature = tool.visible_signature
@@ -127,6 +131,7 @@ async def _invoke_bound_operation(
             result = await _call_with_values(tool, values)
         except Exception:
             if redact_application_error:
+                run.application_failure = True
                 raise _OperationExecutionError(
                     "A declared application operation failed."
                 ) from None
@@ -275,17 +280,29 @@ class Runtime:
         run = _new_run(plan, request)
         if plan.direct_tool is not None:
             async with asyncio.timeout(self.timeout):
-                return await _invoke_bound_operation(
-                    plan.tools[plan.direct_tool],
-                    run,
-                    {},
-                    redact_application_error=False,
-                )
+                try:
+                    return await _invoke_bound_operation(
+                        plan.tools[plan.direct_tool],
+                        run,
+                        {},
+                        redact_application_error=False,
+                    )
+                except TimeoutError as exc:
+                    raise _ApplicationOperationTimeout() from exc
 
         agent = self._agent_for(endpoint)
         message = self._build_user_message(plan, request)
-        async with asyncio.timeout(self.timeout):
-            result = await agent.run(message, deps=run, usage_limits=self.usage_limits)
+        try:
+            async with asyncio.timeout(self.timeout):
+                result = await agent.run(
+                    message, deps=run, usage_limits=self.usage_limits
+                )
+        except Exception:
+            if run.application_failure:
+                raise _OperationExecutionError(
+                    "A declared application operation failed."
+                ) from None
+            raise
         output = result.output
 
         if plan.output_model is not None:

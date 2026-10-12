@@ -1003,6 +1003,7 @@ class _EndpointRun:
     request: Mapping[str, Any]
     states: list[_OperationState]
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    application_failure: bool = False
 
 
 def _compile_endpoint(

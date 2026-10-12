@@ -19,6 +19,7 @@ from pydantic_ai.messages import ModelResponse, ToolCallPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from summonpot import (
+    AgentChoice,
     Depends,
     Exactly,
     FromRequest,
@@ -87,6 +88,56 @@ def test_direct_endpoint_runs_through_http_without_provider_credentials():
     assert response.json() == {"doubled": 42}
     assert calls == [21]
     assert summon._runtime._agents == {}
+
+
+@pytest.mark.parametrize("agent_backed", [False, True], ids=["direct", "agent"])
+def test_application_timeout_is_redacted_over_http(agent_backed):
+    starts = 0
+
+    def fail(value: int, mode: str = "agent") -> DirectResponse:
+        """Raise an application timeout without leaking its message."""
+        nonlocal starts
+        starts += 1
+        raise TimeoutError("private application detail")
+
+    operation = Operation(
+        fail,
+        bind=(
+            {"value": FromRequest("value"), "mode": AgentChoice()}
+            if agent_backed
+            else {"value": FromRequest("value")}
+        ),
+        output=DirectResponse,
+    )
+    summon = Summon("timeout-service")
+    if agent_backed:
+
+        def model_function(messages, info: AgentInfo):
+            tools = list(info.function_tools)
+            if tools:
+                return ModelResponse(parts=[ToolCallPart("fail", {"mode": "agent"})])
+            return ModelResponse(
+                parts=[ToolCallPart(info.output_tools[0].name, {"doubled": 1})]
+            )
+
+        summon._runtime = Runtime(model=FunctionModel(model_function))
+
+    @summon("/timeout")
+    def endpoint(
+        request: DirectRequest,
+        result=Required(operation, calls=Exactly(1)),
+    ) -> DirectResponse:
+        """Execute a declared operation."""
+        ...
+
+    response = TestClient(build_app(summon), raise_server_exceptions=False).post(
+        "/timeout", json={"value": 1}
+    )
+
+    assert starts == 1
+    assert response.status_code == 500
+    assert response.json() == {"detail": "A declared application operation failed."}
+    assert "private application detail" not in response.text
 
 
 def test_annotated_request_and_response_metadata_reach_openapi_and_runtime():
