@@ -541,6 +541,47 @@ def test_malformed_request_422_does_not_echo_sensitive_input(caplog):
     assert private not in response.text
 
 
+def test_direct_provider_and_usage_exceptions_are_application_failures(caplog):
+    from pydantic_ai.exceptions import ModelHTTPError, UsageLimitExceeded
+
+    for raised in (
+        ModelHTTPError(status_code=429, model_name="openai:gpt-4o-mini"),
+        UsageLimitExceeded("PRIVATE_USAGE_LIMIT"),
+    ):
+        summon = Summon("svc")
+        calls = 0
+
+        def make_fail(error):
+            def fail(value: int) -> DirectResponse:
+                nonlocal calls
+                calls += 1
+                raise error
+
+            return fail
+
+        operation = Operation(
+            make_fail(raised),
+            bind={"value": FromRequest("value")},
+            output=DirectResponse,
+        )
+
+        @summon("/direct")
+        def direct(
+            request: DirectRequest, result=Required(operation, calls=Exactly(1))
+        ) -> DirectResponse:
+            """Run one direct operation."""
+            ...
+
+        client = TestClient(build_app(summon), raise_server_exceptions=False)
+        with caplog.at_level(logging.ERROR, logger="summonpot.server"):
+            response = client.post("/direct", json={"value": 3})
+
+        assert calls == 1
+        assert response.status_code == 500
+        assert response.json() == {"detail": "A declared application operation failed."}
+        assert "PRIVATE_USAGE_LIMIT" not in response.text + caplog.text
+
+
 def test_direct_operation_failure_is_redacted_as_application_failure(caplog):
     summon = Summon("svc")
 
@@ -565,9 +606,7 @@ def test_direct_operation_failure_is_redacted_as_application_failure(caplog):
         response = client.post("/direct", json={"value": 3})
 
     assert response.status_code == 500
-    assert response.json() == {
-        "detail": "Endpoint failed while executing its contract."
-    }
+    assert response.json() == {"detail": "A declared application operation failed."}
     assert "PRIVATE_PROVIDER_BODY" not in response.text + caplog.text
     assert "PRIVATE_INPUT" not in response.text + caplog.text
 

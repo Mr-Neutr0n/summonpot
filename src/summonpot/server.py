@@ -284,11 +284,13 @@ async def _run_endpoint(summon: Any, endpoint: Any, params: dict[str, Any]) -> A
 
     from summonpot.runtime import (
         _ApplicationOperationTimeout,
+        _http_error_boundary,
         _OperationExecutionError,
         _OperationInputError,
         _OperationOutputError,
     )
 
+    token = _http_error_boundary.set(True)
     try:
         return await summon._runtime.call(endpoint, params)
     except _OperationInputError:
@@ -357,6 +359,8 @@ async def _run_endpoint(summon: Any, endpoint: Any, params: dict[str, Any]) -> A
             status_code=500,
             detail="Endpoint failed while executing its contract.",
         ) from None
+    finally:
+        _http_error_boundary.reset(token)
 
 
 def _body_parameters(endpoint: Any) -> list[Any]:

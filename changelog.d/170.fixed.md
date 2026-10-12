@@ -1,0 +1,1 @@
+Application operation failures are now classified as redacted server errors across direct, enforced-agent, and legacy callable execution, regardless of exception type. Genuine runtime deadlines and provider/usage failures retain their HTTP classifications.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import inspect
 import json
 import os
@@ -27,6 +28,11 @@ from summonpot.contracts import AgentChoice, FromRequest
 from summonpot.models import EndpointDef
 
 ModelSpec = Model | str
+
+
+_http_error_boundary: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "summonpot_http_error_boundary", default=False
+)
 
 
 class _OperationOutputError(RuntimeError):
@@ -280,15 +286,12 @@ class Runtime:
         run = _new_run(plan, request)
         if plan.direct_tool is not None:
             async with asyncio.timeout(self.timeout):
-                try:
-                    return await _invoke_bound_operation(
-                        plan.tools[plan.direct_tool],
-                        run,
-                        {},
-                        redact_application_error=False,
-                    )
-                except TimeoutError as exc:
-                    raise _ApplicationOperationTimeout() from exc
+                return await _invoke_bound_operation(
+                    plan.tools[plan.direct_tool],
+                    run,
+                    {},
+                    redact_application_error=_http_error_boundary.get(),
+                )
 
         agent = self._agent_for(endpoint)
         message = self._build_user_message(plan, request)
