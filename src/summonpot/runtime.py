@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import inspect
 import json
 import os
@@ -29,12 +30,25 @@ from summonpot.models import EndpointDef
 ModelSpec = Model | str
 
 
+_http_error_boundary: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "summonpot_http_error_boundary", default=False
+)
+
+
 class _OperationOutputError(RuntimeError):
     """A capability returned a value outside its declared output contract."""
 
 
 class _OperationInputError(RuntimeError):
     """An injected value failed the receiving capability parameter contract."""
+
+
+class _OperationExecutionError(RuntimeError):
+    """Application capability failed; its exception details are untrusted."""
+
+
+class _ApplicationOperationTimeout(TimeoutError):
+    """An application operation raised TimeoutError (not the runtime deadline)."""
 
 
 def _tracked_operation(tool: _CompiledTool) -> Any:
@@ -46,7 +60,15 @@ def _tracked_operation(tool: _CompiledTool) -> Any:
         # intentionally collision-free in the declared signature below.
         ctx, *capability_args = args
         if not tool.enforce_bound_exactly_once:
-            result = await _call_capability(tool.fn, *capability_args, **kwargs)
+            try:
+                result = await _call_capability(tool.fn, *capability_args, **kwargs)
+            except Exception:
+                if _http_error_boundary.get():
+                    ctx.deps.application_failure = True
+                    raise _OperationExecutionError(
+                        "A declared application operation failed."
+                    ) from None
+                raise
             async with ctx.deps.lock:
                 ctx.deps.states[tool.identity].succeeded += 1
             return result
@@ -83,6 +105,8 @@ async def _invoke_bound_operation(
     tool: _CompiledTool,
     run: _EndpointRun,
     supplied: Mapping[str, Any],
+    *,
+    redact_application_error: bool = True,
 ) -> Any:
     """Invoke one enforced operation through the shared trusted-value kernel."""
     values = dict(supplied)
@@ -117,7 +141,15 @@ async def _invoke_bound_operation(
         state.running += 1
 
     try:
-        result = await _call_with_values(tool, values)
+        try:
+            result = await _call_with_values(tool, values)
+        except Exception:
+            if redact_application_error:
+                run.application_failure = True
+                raise _OperationExecutionError(
+                    "A declared application operation failed."
+                ) from None
+            raise
         assert tool.output_validator is not None
         try:
             validated = tool.output_validator.validate_python(result)
@@ -263,18 +295,35 @@ class Runtime:
         if plan.direct_tool is not None:
             async with asyncio.timeout(self.timeout):
                 return await _invoke_bound_operation(
-                    plan.tools[plan.direct_tool], run, {}
+                    plan.tools[plan.direct_tool],
+                    run,
+                    {},
+                    redact_application_error=_http_error_boundary.get(),
                 )
 
         agent = self._agent_for(endpoint)
         message = self._build_user_message(plan, request)
-        async with asyncio.timeout(self.timeout):
-            result = await agent.run(message, deps=run, usage_limits=self.usage_limits)
+        try:
+            async with asyncio.timeout(self.timeout):
+                result = await agent.run(
+                    message, deps=run, usage_limits=self.usage_limits
+                )
+        except Exception:
+            if run.application_failure:
+                raise _OperationExecutionError(
+                    "A declared application operation failed."
+                ) from None
+            raise
         output = result.output
 
         if plan.output_model is not None:
             assert plan.output_auditor is not None
-            return plan.output_auditor(output)
+            try:
+                return plan.output_auditor(output)
+            except Exception:
+                raise _OperationOutputError(
+                    "Endpoint output did not satisfy its declared contract."
+                ) from None
         if plan.return_type.lower() not in ("str", "string", "any"):
             try:
                 return json.loads(output)

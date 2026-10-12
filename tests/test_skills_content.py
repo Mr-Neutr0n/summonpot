@@ -58,6 +58,14 @@ def test_skill_documents_an_enforced_rule(rule):
     assert rule in skill_body()
 
 
+def test_skill_documents_redacted_failure_boundary():
+    body = " ".join(skill_body().split())
+    assert "allowlisted endpoint and failure categories" in body
+    assert "exception text and chains" in body
+    assert "HTTP request-validation errors are redacted too" in body
+    assert "do not imply redesigned deadline or result-chain semantics" in body
+
+
 @pytest.mark.parametrize("status", ["422", "429", "502", "504"])
 def test_skill_documents_the_failure_statuses(status):
     assert status in skill_body()

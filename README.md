@@ -635,14 +635,13 @@ summon = Summon(
 
 | HTTP status | Public meaning |
 |---|---|
-| `422` | Request validation failed. |
+| `422` | Request validation failed, or a validated request value failed a receiving operation contract. |
 | `429` | The configured usage limit or provider rate limit was exceeded. |
-| `502` | The provider failed or the agent did not satisfy the endpoint contract. |
+| `502` | The provider failed, the agent did not satisfy the endpoint contract, or operation output failed validation. |
 | `504` | The endpoint exceeded its timeout. |
 | `500` | Provider configuration or application capability failed. |
 
-Provider text, agent output, and capability details stay in operator logs rather than
-public error bodies.
+Framework-owned failures return fixed messages. Normal logs contain allowlisted endpoint/failure categories only; they do not include exception text, chains, provider bodies, prompts, outputs, validation inputs, or capability arguments/results. HTTP request-validation `422` responses are also redacted to avoid echoing invalid input.
 
 The timeout bounds how long summonpot waits. It cannot terminate a synchronous capability
 already running in a worker thread, so give irreversible or long-running operations an

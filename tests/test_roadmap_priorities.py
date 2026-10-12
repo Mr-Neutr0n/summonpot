@@ -30,7 +30,6 @@ def test_remaining_failure_and_deadline_work_precedes_execution_expansion():
     ):
         assert completed in shipped
     for remaining in (
-        "sensitive validation inputs, provider bodies, or exception chains",
         "deadline across request preparation, execution, and finalization",
         "synchronous application code cannot be forcibly stopped",
     ):
