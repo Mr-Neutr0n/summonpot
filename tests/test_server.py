@@ -1488,3 +1488,52 @@ def test_an_unmutated_app_still_builds_and_keeps_distinct_ids():
 
     ids = [paths[p]["post"]["operationId"] for p in ("/first", "/second")]
     assert ids == ["first_endpoint_post", "second_endpoint_post"]
+
+
+@pytest.mark.parametrize("mode", ["direct", "bound-agent", "legacy-agent"])
+@pytest.mark.parametrize("failure", ["provider", "usage", "timeout"])
+def test_application_operation_failures_are_redacted_for_every_execution_path(
+    mode: str, failure: str
+):
+    starts: list[int] = []
+
+    def fail(value: int, choice: str = "x") -> DirectResponse:
+        starts.append(value)
+        if failure == "provider":
+            raise ModelHTTPError(429, "private-model", {"secret": "private"})
+        if failure == "usage":
+            raise UsageLimitExceeded("private")
+        raise TimeoutError("private")
+
+    def generate(messages, info: AgentInfo):
+        arguments = (
+            {"value": 1, "choice": "x"} if mode == "legacy-agent" else {"choice": "x"}
+        )
+        return ModelResponse(parts=[ToolCallPart("fail", arguments)])
+
+    summon = Summon(
+        "provenance", runtime=Runtime(model=FunctionModel(generate), retries=0)
+    )
+    if mode == "legacy-agent":
+        dependency = Required(fail)
+    else:
+        bindings: dict[str, FromRequest | AgentChoice] = {"value": FromRequest("value")}
+        if mode == "bound-agent":
+            bindings["choice"] = AgentChoice()
+        dependency = Required(
+            Operation(fail, bind=bindings, output=DirectResponse), calls=Exactly(1)
+        )
+
+    @summon("/value")
+    def endpoint(request: DirectRequest, result=dependency) -> DirectResponse:
+        """Return the requested value."""
+        ...
+
+    response = TestClient(build_app(summon), raise_server_exceptions=False).post(
+        "/value", json={"value": 1}
+    )
+
+    assert starts == [1]
+    assert response.status_code == 500
+    assert response.json() == {"detail": "A declared application operation failed."}
+    assert "private" not in response.text

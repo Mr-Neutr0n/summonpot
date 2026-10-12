@@ -60,7 +60,15 @@ def _tracked_operation(tool: _CompiledTool) -> Any:
         # intentionally collision-free in the declared signature below.
         ctx, *capability_args = args
         if not tool.enforce_bound_exactly_once:
-            result = await _call_capability(tool.fn, *capability_args, **kwargs)
+            try:
+                result = await _call_capability(tool.fn, *capability_args, **kwargs)
+            except Exception:
+                if _http_error_boundary.get():
+                    ctx.deps.application_failure = True
+                    raise _OperationExecutionError(
+                        "A declared application operation failed."
+                    ) from None
+                raise
             async with ctx.deps.lock:
                 ctx.deps.states[tool.identity].succeeded += 1
             return result
