@@ -70,6 +70,9 @@ def _tracked_operation(tool: _CompiledTool) -> Any:
         # Pydantic AI injects RunContext first positionally. Its parameter name is
         # intentionally collision-free in the declared signature below.
         ctx, *capability_args = args
+        # Tool argument validation runs before this callback. Enforce the request
+        # deadline here, before either legacy or guarded application dispatch.
+        _check_runtime_deadline()
         if not tool.enforce_bound_exactly_once:
             try:
                 result = await _call_capability(tool.fn, *capability_args, **kwargs)

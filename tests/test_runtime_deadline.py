@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import time
+from typing import Annotated
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator
+from pydantic_ai.messages import ModelResponse, ToolCallPart
+from pydantic_ai.models.function import FunctionModel
 
 import summonpot.runtime as runtime_module
 from summonpot import Exactly, FromRequest, Operation, Required, Summon
@@ -16,6 +20,83 @@ class Request(BaseModel):
 
 class Response(BaseModel):
     value: str
+
+
+def test_legacy_capability_validation_expiry_prevents_async_effect():
+    starts = 0
+
+    def slow(value: int) -> int:
+        time.sleep(0.15)
+        return value
+
+    async def effect(value: int) -> str:
+        nonlocal starts
+        starts += 1
+        return "done"
+
+    effect.__annotations__["value"] = Annotated[int, BeforeValidator(slow)]
+
+    def generate(messages, info):
+        return ModelResponse(parts=[ToolCallPart("effect", {"value": 1})])
+
+    summon = Summon(
+        "svc", runtime=Runtime(model=FunctionModel(generate), timeout=0.08, retries=0)
+    )
+
+    @summon("/value")
+    def endpoint(value: int, result=Required(effect)) -> str:
+        """Run the legacy capability."""
+        ...
+
+    # Prebuild the agent so only provider-side tool argument validation overruns.
+    summon._runtime._agent_for(summon.endpoints[0])
+    from fastapi.testclient import TestClient
+
+    from summonpot.server import build_app
+
+    response = TestClient(build_app(summon), raise_server_exceptions=False).post(
+        "/value", json={"value": 1}
+    )
+    assert response.status_code == 504
+    assert starts == 0
+
+
+def test_legacy_capability_validation_expiry_prevents_sync_effect():
+    starts = 0
+
+    def slow(value: int) -> int:
+        time.sleep(0.15)
+        return value
+
+    def effect(value: int) -> str:
+        nonlocal starts
+        starts += 1
+        return "done"
+
+    effect.__annotations__["value"] = Annotated[int, BeforeValidator(slow)]
+
+    def generate(messages, info):
+        return ModelResponse(parts=[ToolCallPart("effect", {"value": 1})])
+
+    summon = Summon(
+        "svc", runtime=Runtime(model=FunctionModel(generate), timeout=0.08, retries=0)
+    )
+
+    @summon("/value")
+    def endpoint(value: int, result=Required(effect)) -> str:
+        """Run the legacy capability."""
+        ...
+
+    summon._runtime._agent_for(summon.endpoints[0])
+    from fastapi.testclient import TestClient
+
+    from summonpot.server import build_app
+
+    response = TestClient(build_app(summon), raise_server_exceptions=False).post(
+        "/value", json={"value": 1}
+    )
+    assert response.status_code == 504
+    assert starts == 0
 
 
 def test_deadline_is_checked_after_waiting_for_operation_admission(monkeypatch):
