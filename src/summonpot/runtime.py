@@ -34,6 +34,15 @@ ModelSpec = Model | str
 _http_error_boundary: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "summonpot_http_error_boundary", default=False
 )
+_runtime_deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar(
+    "summonpot_runtime_deadline", default=None
+)
+
+
+def _check_runtime_deadline() -> None:
+    deadline = _runtime_deadline.get()
+    if deadline is not None and asyncio.get_running_loop().time() >= deadline:
+        raise TimeoutError
 
 
 class _OperationOutputError(RuntimeError):
@@ -134,6 +143,9 @@ async def _invoke_bound_operation(
 
     state = run.states[tool.identity]
     async with run.lock:
+        # Admission is the effect boundary: validation/reservation/lock contention
+        # may consume the remaining budget, so check only after acquiring the lock.
+        _check_runtime_deadline()
         if tool.maximum is not None and state.started >= tool.maximum:
             raise ModelRetry(
                 f"Capability {tool.name!r} may run exactly once and has already started."
@@ -295,8 +307,12 @@ class Runtime:
             if self.timeout is None
             else asyncio.get_running_loop().time() + self.timeout
         )
-        async with asyncio.timeout(self.timeout):
-            return await self._call_with_deadline(endpoint, params, deadline)
+        token = _runtime_deadline.set(deadline)
+        try:
+            async with asyncio.timeout(self.timeout):
+                return await self._call_with_deadline(endpoint, params, deadline)
+        finally:
+            _runtime_deadline.reset(token)
 
     async def _call_with_deadline(
         self,
