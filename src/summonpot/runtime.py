@@ -40,10 +40,14 @@ _runtime_deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar
 )
 
 
+class _RuntimeDeadlineExceeded(TimeoutError):
+    """Framework-owned request deadline expiry, never an application failure."""
+
+
 def _check_runtime_deadline() -> None:
     deadline = _runtime_deadline.get()
     if deadline is not None and time.monotonic() >= deadline:
-        raise TimeoutError
+        raise _RuntimeDeadlineExceeded
 
 
 class _OperationOutputError(RuntimeError):
@@ -76,6 +80,8 @@ def _tracked_operation(tool: _CompiledTool) -> Any:
         if not tool.enforce_bound_exactly_once:
             try:
                 result = await _call_capability(tool.fn, *capability_args, **kwargs)
+            except _RuntimeDeadlineExceeded:
+                raise
             except Exception:
                 if _http_error_boundary.get():
                     ctx.deps.application_failure = True
@@ -160,6 +166,8 @@ async def _invoke_bound_operation(
     try:
         try:
             result = await _call_with_values(tool, values)
+        except _RuntimeDeadlineExceeded:
+            raise
         except Exception:
             if redact_application_error:
                 run.application_failure = True

@@ -99,6 +99,58 @@ def test_legacy_capability_validation_expiry_prevents_sync_effect():
     assert starts == 0
 
 
+def test_runtime_deadline_from_worker_is_not_redacted_as_application_failure(
+    monkeypatch,
+):
+    import asyncio
+
+    from fastapi.testclient import TestClient
+
+    from summonpot.server import build_app
+
+    starts = 0
+
+    def effect(query: str) -> Response:
+        nonlocal starts
+        starts += 1
+        return Response(value="done")
+
+    operation = Operation(effect, bind={"query": FromRequest("query")}, output=Response)
+    summon = Summon("svc", runtime=Runtime(timeout=0.01))
+
+    @summon("/deadline")
+    def endpoint(
+        request: Request, result=Required(operation, calls=Exactly(1))
+    ) -> Response:
+        """Run one bounded capability."""
+        ...
+
+    class NoTimeout:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+    original_to_thread = asyncio.to_thread
+
+    async def delayed_worker(fn, /, *args, **kwargs):
+        await asyncio.sleep(0.02)
+        return await original_to_thread(fn, *args, **kwargs)
+
+    monkeypatch.setattr(runtime_module.asyncio, "timeout", lambda _: NoTimeout())
+    monkeypatch.setattr(runtime_module.asyncio, "to_thread", delayed_worker)
+    response = TestClient(build_app(summon), raise_server_exceptions=False).post(
+        "/deadline", json={"query": "ok"}
+    )
+
+    assert response.status_code == 504
+    assert response.json() == {
+        "detail": "Endpoint timed out before producing a valid response."
+    }
+    assert starts == 0
+
+
 def test_deadline_is_checked_after_waiting_for_operation_admission(monkeypatch):
     starts = 0
 
