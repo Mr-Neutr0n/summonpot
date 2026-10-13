@@ -123,7 +123,7 @@ keeping unsupported values inert. Runtime-enforced output schemas also reject am
 declared or extra-owned JSON keys without serializing application values.
 
 This release does not broaden runtime enforcement to multi-operation graphs. The remaining
-enforce-or-reject, input, failure, and deadline semantics stay in milestone 1 below.
+result-chain and broader deterministic-execution semantics stay in milestone 2 below.
 
 Current source completes the admission portion of that milestone: only one required typed
 operation with `calls=Exactly(1)`, complete supported bindings, declared output, no ordering,
@@ -144,29 +144,36 @@ alias, and canonical-value semantics as HTTP without rerunning the HTTP adapter'
 validation. Parameterless endpoints compile an explicit empty raw contract, rejecting
 undeclared keys before application hooks or model execution.
 
-This release does not add result chains or broader deterministic execution. Stable failure-boundary handling and end-to-end runtime deadline semantics are shipped; remaining milestone 1 work is result-chain enforcement.
+Version 0.9.0 did not ship stable failure-boundary handling or end-to-end runtime deadline
+semantics; those were still milestone 1 acceptance criteria. It did not add result chains or
+broader deterministic execution.
+
+### 0.10.0 boundary
+
+Version 0.10.0 completes milestone 1's single-operation contract and input/output hardening.
+It ships stable redacted failure responses and one monotonic runtime deadline spanning request
+preparation, execution, and finalization, with pre-effect checks. HTTP body parsing, request
+validation, and response serialization are outside that deadline. Synchronous preparation,
+finalization, and capability work cannot be preempted; a timeout after synchronous work starts
+does not prove that an effect did not occur. These guarantees do not add result chains, broader
+deterministic execution, or claim context budgeting.
 
 ## Next milestones
 
 The ordering below prioritizes complete, enforceable contracts before expanding execution.
 These are planned acceptance criteria, not claims that the current release enforces them or
-promised release dates. The shipped boundaries above remain unchanged until the corresponding
-implementation and end-to-end tests land. No milestone adds an executor selection flag,
+promised release dates. Milestone 1 is completed in the 0.10.0 boundary above; the numbered
+sequence below preserves its follow-on milestones. No milestone adds an executor selection flag,
 public graph, or handler body.
 
 ### 1. Contract enforcement and input/output hardening
 
-Finish the remaining deadline contract before adding result chains. The completed 0.9.0
-admission, transport, namespace, and stable failure-boundary work remains the baseline:
+Completed in 0.10.0: the 0.9.0 admission, transport, and namespace work plus the failure and
+runtime-deadline guarantees recorded in the 0.10.0 boundary above. This completion does not
+include response serialization in the deadline or claim preemption of synchronous work.
 
-- One monotonic deadline covers runtime request preparation, execution, and finalization;
-  check it before starting effects. HTTP body parsing and request validation precede handler
-  execution and are explicitly outside this runtime deadline.
-- Document that synchronous preparation/finalization cannot be preempted and synchronous
-  capability workers cannot be forcibly stopped; a timeout is not proof that an effect did
-  not occur.
-
-Acceptance requires real localhost HTTP probes for the pre-effect deadline check and uncertain outcomes after synchronous work has started; runtime tests also cover preparation/finalization timeouts.
+No remaining acceptance criteria are listed for this completed milestone. Follow-on result-chain
+work begins at milestone 2.
 
 ### 2. Validated result chains and failure semantics
 
@@ -340,8 +347,8 @@ establish compatibility with our pinned dependencies or authority guarantees.
 
 #### A1. Basic budgeting and context isolation
 
-After milestone 1's boundary hardening, improve the existing agent path without waiting for
-milestones 2–3, a general graph, or a durable executor. This early slice does not require
+With milestone 1's boundary hardening now complete in 0.10.0, improve the existing agent path
+without waiting for milestones 2–3, a general graph, or a durable executor. This early slice does not require
 result-chain retrieval or producer-constrained choices:
 
 - Keep canonical request state and the invocation ledger separate from model-visible working
