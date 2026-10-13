@@ -1,1 +1,0 @@
-Prevent private URL and acquisition data from reaching website analytics through a shared SDK envelope sanitizer and conservative capture configuration, verified with decoded intercepted SDK requests.

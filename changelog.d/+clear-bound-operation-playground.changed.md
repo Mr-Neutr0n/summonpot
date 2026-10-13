@@ -1,1 +1,0 @@
-Clarify the browser-local bound-operation playground with a request/choice/operation authority flow, canonical shipped Python source, compact results, aligned controls, and restrained accessible colors.

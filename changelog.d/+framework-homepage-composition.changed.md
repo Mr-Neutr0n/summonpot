@@ -1,1 +1,0 @@
-Align the Summonpot homepage with the reviewed framework landing composition while preserving its existing playground and documentation.

@@ -1,1 +1,0 @@
-Center the Summonpot homepage content at desktop and mobile widths, and link to its standalone browser-local playground instead of embedding it in the landing page.

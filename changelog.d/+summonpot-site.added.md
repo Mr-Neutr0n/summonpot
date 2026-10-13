@@ -1,1 +1,0 @@
-Add a product website with documentation and agent-readable discovery files.
