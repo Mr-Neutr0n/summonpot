@@ -74,6 +74,22 @@ class TagResponse(BaseModel):
     tags: list[str]
 
 
+class SlowValidatedResponse(BaseModel):
+    value: str
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source, handler):
+        from pydantic_core import core_schema
+
+        schema = handler(source)
+
+        def delay_validation(value):
+            time.sleep(0.05)
+            return value
+
+        return core_schema.no_info_after_validator_function(delay_validation, schema)
+
+
 def _register_endpoint(summon: Summon, *, model: str | None = None) -> None:
     @summon("/research", model=model)
     def research(request: ResearchRequest) -> ResearchResponse:
@@ -2090,3 +2106,108 @@ def test_an_invalid_retry_count_never_reaches_registration_or_a_request():
     assert summon._runtime.retries == 0
     client = TestClient(build_app(summon), raise_server_exceptions=False)
     assert client.post("/ping").status_code == 200
+
+
+def test_slow_final_output_validation_expires_runtime_deadline():
+    operation = Operation(
+        lambda query: SlowValidatedResponse(value=query),
+        bind={"query": FromRequest("query")},
+        output=SlowValidatedResponse,
+    )
+    summon = Summon("svc")
+
+    @summon("/finalize")
+    def endpoint(
+        request: ResearchRequest, result=Required(operation, calls=Exactly(1))
+    ) -> SlowValidatedResponse:
+        """Validate final output under the same request deadline."""
+        ...
+
+    with pytest.raises(TimeoutError):
+        asyncio.run(Runtime(timeout=0.01).call(summon.endpoints[0], {"query": "ok"}))
+
+
+def test_preparation_overrun_expires_deadline_before_direct_effect(monkeypatch):
+    import summonpot.runtime as runtime_module
+
+    started = 0
+
+    def perform(query: str) -> DirectCustomerResponse:
+        nonlocal started
+        started += 1
+        return DirectCustomerResponse(customer_id=UUID(int=1), include_history=False)
+
+    operation = Operation(
+        perform, bind={"query": FromRequest("query")}, output=DirectCustomerResponse
+    )
+    summon = Summon("svc")
+
+    @summon("/deadline")
+    def endpoint(
+        request: ResearchRequest, result=Required(operation, calls=Exactly(1))
+    ) -> DirectCustomerResponse:
+        """Return the operation result."""
+        ...
+
+    original = runtime_module._prepare_request
+
+    def slow_prepare(plan, params):
+        time.sleep(0.03)
+        return original(plan, params)
+
+    monkeypatch.setattr(runtime_module, "_prepare_request", slow_prepare)
+    with pytest.raises(TimeoutError):
+        asyncio.run(
+            Runtime(timeout=0.01).call(summon.endpoints[0], {"query": "ok", "value": 1})
+        )
+    assert started == 0
+
+
+def test_queued_sync_worker_checks_deadline_before_effect(monkeypatch):
+    import concurrent.futures
+    import threading
+
+    started = 0
+
+    def perform(query: str) -> DirectCustomerResponse:
+        nonlocal started
+        started += 1
+        return DirectCustomerResponse(customer_id=UUID(int=1), include_history=False)
+
+    operation = Operation(
+        perform, bind={"query": FromRequest("query")}, output=DirectCustomerResponse
+    )
+    summon = Summon("svc")
+
+    @summon("/deadline")
+    def endpoint(
+        request: ResearchRequest, result=Required(operation, calls=Exactly(1))
+    ) -> DirectCustomerResponse:
+        """Return operation output."""
+        ...
+
+    gate = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    occupied = threading.Event()
+    release = threading.Event()
+    blocker = gate.submit(lambda: (occupied.set(), release.wait(2)))
+    assert occupied.wait(1)
+    finished = threading.Event()
+    loop = asyncio.new_event_loop()
+    loop.set_default_executor(gate)
+
+    async def invoke():
+        try:
+            await Runtime(timeout=0.02).call(summon.endpoints[0], {"query": "ok"})
+        finally:
+            finished.set()
+
+    try:
+        with pytest.raises(TimeoutError):
+            loop.run_until_complete(invoke())
+    finally:
+        release.set()
+        blocker.result(1)
+        loop.run_until_complete(asyncio.sleep(0.05))
+        loop.close()
+        gate.shutdown()
+    assert started == 0

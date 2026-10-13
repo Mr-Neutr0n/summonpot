@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import contextvars
 import inspect
 import json
 import os
+import time
 from collections.abc import Mapping
 from typing import Any
 
@@ -33,6 +35,19 @@ ModelSpec = Model | str
 _http_error_boundary: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "summonpot_http_error_boundary", default=False
 )
+_runtime_deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar(
+    "summonpot_runtime_deadline", default=None
+)
+
+
+class _RuntimeDeadlineExceeded(TimeoutError):
+    """Framework-owned request deadline expiry, never an application failure."""
+
+
+def _check_runtime_deadline() -> None:
+    deadline = _runtime_deadline.get()
+    if deadline is not None and time.monotonic() >= deadline:
+        raise _RuntimeDeadlineExceeded
 
 
 class _OperationOutputError(RuntimeError):
@@ -59,9 +74,14 @@ def _tracked_operation(tool: _CompiledTool) -> Any:
         # Pydantic AI injects RunContext first positionally. Its parameter name is
         # intentionally collision-free in the declared signature below.
         ctx, *capability_args = args
+        # Tool argument validation runs before this callback. Enforce the request
+        # deadline here, before either legacy or guarded application dispatch.
+        _check_runtime_deadline()
         if not tool.enforce_bound_exactly_once:
             try:
                 result = await _call_capability(tool.fn, *capability_args, **kwargs)
+            except _RuntimeDeadlineExceeded:
+                raise
             except Exception:
                 if _http_error_boundary.get():
                     ctx.deps.application_failure = True
@@ -133,6 +153,9 @@ async def _invoke_bound_operation(
 
     state = run.states[tool.identity]
     async with run.lock:
+        # Admission is the effect boundary: validation/reservation/lock contention
+        # may consume the remaining budget, so check only after acquiring the lock.
+        _check_runtime_deadline()
         if tool.maximum is not None and state.started >= tool.maximum:
             raise ModelRetry(
                 f"Capability {tool.name!r} may run exactly once and has already started."
@@ -143,6 +166,8 @@ async def _invoke_bound_operation(
     try:
         try:
             result = await _call_with_values(tool, values)
+        except _RuntimeDeadlineExceeded:
+            raise
         except Exception:
             if redact_application_error:
                 run.application_failure = True
@@ -198,7 +223,12 @@ async def _call_capability(fn: Any, *args: Any, **kwargs: Any) -> Any:
     """Run sync and async application callables without blocking the event loop."""
     if inspect.iscoroutinefunction(fn):
         return await fn(*args, **kwargs)
-    result = await asyncio.to_thread(fn, *args, **kwargs)
+
+    def invoke_sync() -> Any:
+        _check_runtime_deadline()
+        return fn(*args, **kwargs)
+
+    result = await asyncio.to_thread(invoke_sync)
     if inspect.isawaitable(result):
         return await result
     return result
@@ -288,47 +318,67 @@ class Runtime:
         endpoint: EndpointDef,
         params: Mapping[str, Any],
     ) -> Any:
-        """Run an endpoint with provider-neutral tools and typed output."""
+        """Run one endpoint under a single deadline, including runtime preparation."""
+        deadline = None if self.timeout is None else time.monotonic() + self.timeout
+        token = _runtime_deadline.set(deadline)
+        try:
+            async with asyncio.timeout(self.timeout):
+                return await self._call_with_deadline(endpoint, params, deadline)
+        finally:
+            _runtime_deadline.reset(token)
+
+    async def _call_with_deadline(
+        self,
+        endpoint: EndpointDef,
+        params: Mapping[str, Any],
+        deadline: float | None,
+    ) -> Any:
+        """Execute inside ``call``'s request-scoped absolute timeout context."""
+
+        def check_deadline() -> None:
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError
+
         plan = self._plan_for(endpoint)
         request = _prepare_request(plan, params)
         run = _new_run(plan, request)
+        check_deadline()
         if plan.direct_tool is not None:
-            async with asyncio.timeout(self.timeout):
-                return await _invoke_bound_operation(
-                    plan.tools[plan.direct_tool],
-                    run,
-                    {},
-                    redact_application_error=_http_error_boundary.get(),
-                )
+            result = await _invoke_bound_operation(
+                plan.tools[plan.direct_tool],
+                run,
+                {},
+                redact_application_error=_http_error_boundary.get(),
+            )
+            check_deadline()
+            return result
 
         agent = self._agent_for(endpoint)
         message = self._build_user_message(plan, request)
+        check_deadline()
         try:
-            async with asyncio.timeout(self.timeout):
-                result = await agent.run(
-                    message, deps=run, usage_limits=self.usage_limits
-                )
+            result = await agent.run(message, deps=run, usage_limits=self.usage_limits)
         except Exception:
             if run.application_failure:
                 raise _OperationExecutionError(
                     "A declared application operation failed."
                 ) from None
             raise
+        check_deadline()
         output = result.output
 
         if plan.output_model is not None:
             assert plan.output_auditor is not None
             try:
-                return plan.output_auditor(output)
+                output = plan.output_auditor(output)
             except Exception:
                 raise _OperationOutputError(
                     "Endpoint output did not satisfy its declared contract."
                 ) from None
-        if plan.return_type.lower() not in ("str", "string", "any"):
-            try:
-                return json.loads(output)
-            except (json.JSONDecodeError, TypeError):
-                return output
+        elif plan.return_type.lower() not in ("str", "string", "any"):
+            with contextlib.suppress(json.JSONDecodeError, TypeError):
+                output = json.loads(output)
+        check_deadline()
         return output
 
     def _agent_for(self, endpoint: EndpointDef) -> Agent[_EndpointRun, Any]:

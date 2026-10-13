@@ -90,6 +90,73 @@ def test_direct_endpoint_runs_through_http_without_provider_credentials():
     assert summon._runtime._agents == {}
 
 
+def test_live_http_direct_call_honors_deadline():
+    import socket
+    import threading
+    import time
+    import urllib.error
+    import urllib.request
+
+    import uvicorn
+
+    starts = threading.Event()
+    release = threading.Event()
+
+    def effect(value: int) -> DirectResponse:
+        starts.set()
+        release.wait(timeout=2)
+        return DirectResponse(doubled=value)
+
+    operation = Operation(
+        effect, bind={"value": FromRequest("value")}, output=DirectResponse
+    )
+    summon = Summon("live-timeout-service")
+    summon._runtime = Runtime(timeout=0.05)
+
+    @summon("/timeout")
+    def endpoint(
+        request: DirectRequest, result=Required(operation, calls=Exactly(1))
+    ) -> DirectResponse:
+        """Run one blocking application operation."""
+        ...
+
+    app = build_app(summon)
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    server = uvicorn.Server(
+        uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error")
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{port}"
+    try:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            try:
+                with urllib.request.urlopen(base + "/openapi.json", timeout=0.2):
+                    break
+            except OSError:
+                time.sleep(0.02)
+        else:
+            pytest.fail("localhost HTTP server did not start")
+
+        request = urllib.request.Request(
+            base + "/timeout",
+            data=b'{"value": 5}',
+            headers={"content-type": "application/json"},
+        )
+        with pytest.raises(urllib.error.HTTPError) as response:
+            urllib.request.urlopen(request, timeout=2)
+        assert response.value.code == 504
+        assert starts.wait(timeout=1)
+    finally:
+        release.set()
+        server.should_exit = True
+        thread.join(timeout=5)
+    assert not thread.is_alive()
+
+
 @pytest.mark.parametrize("agent_backed", [False, True], ids=["direct", "agent"])
 def test_application_timeout_is_redacted_over_http(agent_backed):
     starts = 0
