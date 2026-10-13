@@ -1,1 +1,0 @@
-Add a bounded browser-local quote contract playground and remove the recorded demo viewer/fixtures. The playground is explicitly illustrative; the separate direct HTTP example remains the executable framework path.

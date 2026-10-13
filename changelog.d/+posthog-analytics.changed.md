@@ -1,1 +1,0 @@
-Instrument summonpot.modepot.io with privacy-conscious shared ModePot PostHog page analytics.

@@ -6,7 +6,7 @@ from pathlib import Path
 ROADMAP = Path(__file__).resolve().parents[1] / "ROADMAP.md"
 
 
-def test_remaining_failure_and_deadline_work_precedes_execution_expansion():
+def test_v010_boundary_completes_milestone_one_before_execution_expansion():
     text = ROADMAP.read_text(encoding="utf-8")
     shipped = " ".join(text.split("## Next milestones", 1)[0].split())
     planned = text.split("## Next milestones", 1)[1].split("## Non-goals", 1)[0]
@@ -29,11 +29,20 @@ def test_remaining_failure_and_deadline_work_precedes_execution_expansion():
         "Raw runtime mappings use the declared request contract",
     ):
         assert completed in shipped
-    for remaining in (
-        "One monotonic deadline covers runtime request preparation, execution, and finalization",
-        "synchronous capability workers cannot be forcibly stopped",
+    v090 = shipped.split("0.9.0 boundary", 1)[1].split("0.10.0 boundary", 1)[0]
+    v010 = shipped.split("0.10.0 boundary", 1)[1]
+    assert "did not ship stable failure-boundary handling" in v090
+    assert "did not ship" in v090 and "runtime deadline" in v090
+    for shipped_contract in (
+        "stable redacted failure responses",
+        "one monotonic runtime deadline",
+        "HTTP body parsing, request validation, and response serialization are outside that deadline",
+        "cannot be preempted",
+        "does not prove that an effect did not occur",
     ):
-        assert remaining in hardening
+        assert shipped_contract in v010
+    assert "No remaining acceptance criteria are listed" in hardening
+    assert "Finish the remaining deadline contract" not in hardening
 
 
 def test_output_namespace_hardening_is_shipped_not_planned():
@@ -109,7 +118,7 @@ def test_context_slices_require_their_actual_execution_prerequisites():
     text = " ".join(ROADMAP.read_text(encoding="utf-8").split())
     basic = text.split("#### A1.", 1)[1].split("#### A2.", 1)[0]
     results = text.split("#### A2.", 1)[1].split("### B.", 1)[0]
-    assert "After milestone 1's boundary hardening" in basic
+    assert "With milestone 1's boundary hardening now complete in 0.10.0" in basic
     assert "without waiting for milestones 2\N{EN DASH}3" in basic
     assert "Budget the complete model request" in basic
     assert "Keep canonical request state and the invocation ledger separate" in basic
@@ -154,7 +163,7 @@ def test_agent_context_track_preserves_declarative_authority():
     for requirement in (
         "endpoint body remains `...`",
         "not yet shipped Summonpot features",
-        "After milestone 1's boundary hardening",
+        "With milestone 1's boundary hardening now complete in 0.10.0",
         "Only after authenticated application context (milestone 4)",
         "Keep stateless requests the default",
         "compaction summaries non-authoritative",

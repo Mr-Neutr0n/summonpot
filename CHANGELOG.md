@@ -10,6 +10,56 @@ release assembles them here — run `make changelog-draft` to preview them.
 
 <!-- towncrier release notes start -->
 
+## [0.10.0] - 2026-10-12
+
+### Added
+
+- Add a product website with documentation and agent-readable discovery files.
+
+### Changed
+
+- Add a bounded browser-local quote contract playground and remove the recorded demo viewer/fixtures. The playground is explicitly illustrative; the separate direct HTTP example remains the executable framework path.
+- Add a compact Summonpot family mark for small-size brand and package contexts.
+- Add a complete homepage endpoint example showing bounded agent choice and a required application-owned operation.
+- Adds a secondary Roadmap action to the homepage hero when the repository roadmap source is present.
+- Adds privacy-safe browser-local playground outcome events. The shared `playground_preview_started` / `playground_preview_completed` contract includes only bounded project, mode, result, failure class, and an ephemeral per-attempt correlation ID; it excludes request values and output. No library telemetry was added.
+- Align the Summonpot homepage with the reviewed framework landing composition while preserving its existing playground and documentation.
+- Center the Summonpot homepage content at desktop and mobile widths, and link to its standalone browser-local playground instead of embedding it in the landing page.
+- Clarify the browser-local bound-operation playground with a request/choice/operation authority flow, canonical shipped Python source, compact results, aligned controls, and restrained accessible colors.
+- Expand the documentation with task guides for the supported model-free and agent-backed operation paths, an operation/binding reference, execution internals, and provider troubleshooting. Generate downloadable Markdown from the same guide sources and index the new routes in the website navigation and llms.txt.
+- Instrument summonpot.modepot.io with privacy-conscious shared ModePot PostHog page analytics.
+- Normalize Summonpot homepage, documentation, and standalone and embedded playground controls to the ModePot family typography, layout, spacing, and purple-accent presentation while preserving the framework's native Light, Dark, and Auto themes and the browser-local, shipped-example authority boundary.
+- One monotonic deadline now covers runtime request preparation, execution, and final output validation. Synchronous preparation and validation remain non-preemptible; HTTP body parsing/request validation precede the handler and are outside this runtime deadline. A capability already running in a synchronous worker may still complete after timeout, so treat timeout as an uncertain outcome and use application-level idempotency for irreversible effects.
+- Operation input/output contract failures now map to stable redacted HTTP responses, and normal failure logs omit exception text and chains. Malformed request-validation responses no longer echo rejected values. Deadline semantics and result chains are unchanged.
+- Preserve `Annotated` metadata on Pydantic request and response models through runtime validation and HTTP schema generation, retain business parameters named `self` or `cls`, and reject unbound endpoint receivers instead of silently dropping them. Serialize runtime-validated annotated responses without replaying their application validators, preserving schema metadata and serializers.
+- Publish source-maintained README and roadmap pages using links pinned to the generated source commit.
+- Redact application-raised `TimeoutError` as a stable 500 response instead of misclassifying it as a request timeout.
+- Remove the redundant homepage supporting figure while preserving all original diagram assets and other consumers.
+- Replace the quote-form demo with a browser-local preview of Summonpot's shipped bound-operation contract: `FromRequest`, bounded `AgentChoice`, and an exactly-once required operation.
+- Replaced the crowded Summonpot hero and social artwork with a minimal lockup built from the existing compact mark.
+- Restore the native homepage footer navigation to the Quick start guide.
+- Show ModePot, repository, community, and creator links in Summonpot headers and compact menus.
+- Standardized the README hero to 600px and added a visible link to the ModePot family.
+- The README now links directly to Summonpot's live quick start, playground, and architecture docs.
+- The README prominently links to the project website beside the ModePot family link.
+- The product homepage and architecture guide now include the existing execution-flow and authority-boundary diagrams, with captions, accessible descriptions, and full-size links.
+
+### Fixed
+
+- Render PEP 604 unions (`int | None`) correctly on Python 3.14+ without recursing into `__origin__`. Add Python 3.14 to CI matrix and Trove classifiers. ([#76](https://github.com/tugrulguner/summonpot/issues/76))
+- Add a canonical ModePot return link and correct the quick-start example URL.
+- Application operation failures are now classified as redacted server errors across direct, enforced-agent, and legacy callable execution, regardless of exception type. Genuine runtime deadlines and provider/usage failures retain their HTTP classifications.
+- Astro 7 and Starlight 0.42 now resolve the custom header’s components through package exports. The playground reads its example from the repository root during prerendering, and the generated Starlight 404 page is no longer shadowed by a static public file.
+- Capture pageviews on the standalone website playground using the shared PostHog configuration, without duplicate initialization.
+- Complete browser playground attempts with a bounded execution failure when result presentation throws, and keep retries usable without exposing exception details.
+- Fix inconsistent site-wide light and dark themes, unreadable header controls, and embedded playground theme synchronization.
+- Fixed empty structured data and improved the documentation site's search and AI-agent discovery metadata.
+- Install Chromium and its system dependencies before the production website build so browser playground regressions can run during deployment.
+- Make horizontally scrollable homepage code blocks keyboard-reachable and visibly focused.
+- Prevent private URL and acquisition data from reaching website analytics through a shared SDK envelope sanitizer and conservative capture configuration, verified with decoded intercepted SDK requests.
+- The packaging-consumer type check now pins Pyright to the version resolved in `uv.lock`.
+
+
 ## [0.9.0] - 2026-09-25
 
 ### Changed
