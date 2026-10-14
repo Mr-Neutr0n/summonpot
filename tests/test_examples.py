@@ -30,6 +30,7 @@ EXAMPLES = [
     ("08_direct_execution.py", "/quotes/direct", "post"),
     ("09_contract_boundaries/app.py", "/customers/view", "post"),
     ("10_result_chain/app.py", "/reservations", "post"),
+    ("11_linear_result_chain/app.py", "/reservations", "post"),
 ]
 
 

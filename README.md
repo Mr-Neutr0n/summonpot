@@ -430,8 +430,8 @@ subclass, and Python's numeric widening permits `int` or `bool` to feed `float`.
 > required `Exactly(1)` operation using `FromRequest`, direct `AgentChoice`, and callable
 > defaults. When every required value is application-owned and the operation output exactly
 > matches the endpoint response model, that operation executes without a model.
-> Unreleased source also enforces a sequential pair of required `Exactly(1)` operations
-> connected by `FromResult` or `after`. That pair remains agent-mediated and returns the
+> Unreleased source also enforces a sequential chain of required `Exactly(1)` operations
+> connected by `FromResult` or `after`. That chain remains agent-mediated and returns the
 > unique terminal operation's canonical validated result. `FromContext`, broader call
 > bounds and graphs, and multi-operation direct paths remain planned. Binding sources must be
 > exact built-in vocabulary types; user-defined subclasses are rejected too. Bare callable
@@ -441,19 +441,16 @@ subclass, and Python's numeric widening permits `int` or `bool` to feed `float`.
 
 ### Unreleased: validated result chains
 
-A lookup can now feed a second required operation without asking the model to reconstruct
-its arguments. Declare two `Required(..., calls=Exactly(1))` operations; use `FromResult`
-for validated result fields and `after` for independent success ordering. Only the ready
-operation is exposed, and readiness is checked again before invocation.
+A uniquely ready required operation can feed the next step without asking the model to reconstruct arguments. Declare two or more `Required(..., calls=Exactly(1))` operations; use `FromResult` for validated result fields and `after` for independent success ordering. Every step must have exactly one ready operation, and readiness is checked again before invocation.
 
-The pair accepts `FromRequest`, `FromResult`, and supported immutable defaults—not
+The chain accepts `FromRequest`, `FromResult`, and supported immutable defaults—not
 `AgentChoice` or context bindings. Its unique terminal operation must declare the exact
 endpoint response annotation. Summonpot returns that operation's validated result; the
 model cannot invent a receipt. Canonical intermediate results stay outside model context.
 
 This slice is agent-mediated, not model-free. Starts remain reserved after failure or
 uncertain timeout; model retries cannot replay effects. Applications own cross-request
-idempotency and transactions. See the runnable [SQLite inventory reservation example](examples/10_result_chain/README.md)
+idempotency and transactions. See the runnable [three-step SQLite inventory reservation example](examples/11_linear_result_chain/README.md)
 for a real persisted receipt and independent database checks. These application-owned
 operations do not imply a framework database adapter. This feature is not in PyPI 0.10.0.
 
@@ -518,7 +515,7 @@ Summonpot chooses its current execution path without adding a second endpoint AP
 |---|---|
 | Pydantic request model, one required `Exactly(1)` operation, at least one `FromRequest` binding, only `FromRequest` or immutable identity-stable defaults, exact response-model output | Execute directly without a model |
 | A direct `AgentChoice` remains in the admitted single-operation shape | Use the agent runtime with the enforced operation contract |
-| Supported sequential pair of required `Exactly(1)` operations (unreleased source) | Agent-mediated readiness and result binding; return the canonical terminal result |
+| Supported sequential chain of required `Exactly(1)` operations (unreleased source) | Agent-mediated readiness and result binding; return the canonical terminal result |
 | Bare callable capabilities with implicit marker bounds | Use the legacy agent runtime |
 | Unsupported explicit binding, ordering, bound, output, or multi-operation shape | Reject during registration |
 

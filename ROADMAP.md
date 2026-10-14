@@ -158,14 +158,12 @@ finalization, and capability work cannot be preempted; a timeout after synchrono
 does not prove that an effect did not occur. These guarantees do not add result chains, broader
 deterministic execution, or claim context budgeting.
 
-### Unreleased source boundary: sequential operation pairs
+### Unreleased source boundary: sequential operation chains
 
-Current source adds a narrow, agent-mediated pair of required `Exactly(1)` operations.
-`FromResult` injects fields from the first operation's locally validated Pydantic result;
+Current source adds agent-mediated sequential chains of two or more required `Exactly(1)` operations, provided exactly one operation is ready at every step.
+`FromResult` injects fields from a predecessor's locally validated Pydantic result;
 `after` independently requires successful predecessor completion. Declaration order does
-not choose execution order. Both operations use `FromRequest`, `FromResult`, or supported
-immutable callable defaults. Chains containing `AgentChoice`, `FromContext`, broader
-bounds, disconnected nodes, cycles, or more than two operations remain unsupported.
+not choose execution order. All operations use `FromRequest`, `FromResult`, or supported immutable callable defaults. Chains containing `AgentChoice`, `FromContext`, broader bounds, disconnected nodes, cycles, or any step with multiple ready operations remain unsupported.
 
 Exactly one operation must declare the endpoint's exact full response annotation, and it
 must be the terminal operation. The endpoint returns that canonical validated result,
@@ -201,8 +199,7 @@ work begins at milestone 2.
 
 ### 2. Validated result chains and failure semantics
 
-Status: the two-operation subset above is implemented in unreleased source. The remaining
-milestone expands beyond that pair and establishes broader failure/recovery semantics;
+Status: a sequential-chain subset with one uniquely ready operation at each step is implemented in unreleased source. The remaining milestone expands beyond that subset and establishes broader failure/recovery semantics;
 it must preserve the exercised guarantees below.
 
 Add private multi-operation execution semantics through a useful,

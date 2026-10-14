@@ -93,10 +93,11 @@ direct `AgentChoice`, or callable defaults. Trusted/defaulted arguments are abse
 model schema, the single start is reserved before application code, and `output=` is
 validated before the operation satisfies `Required`.
 
-Unreleased source also admits a sequential pair of required `Exactly(1)` operations
+Unreleased source also admits a sequential chain of required `Exactly(1)` operations
+with exactly one ready operation at each step, without a two-operation ceiling,
 connected by `FromResult` or `after`. Bound result fields are read only after local producer
 validation, and the response is the canonical result of the unique terminal operation whose
-full output annotation exactly matches the endpoint. The pair remains agent-mediated;
+full output annotation exactly matches the endpoint. The chain remains agent-mediated;
 canonical results stay outside model context. `FromContext`, collection-backed choices,
 broader graphs and bounds remain planned and rejected at registration. See
 [`10_result_chain`](../examples/10_result_chain/README.md) for the persisted inventory example and
@@ -247,8 +248,8 @@ string constraints, custom literal values, custom instance-checking metaclasses,
 unsupported core schemas are rejected at registration rather than silently stripped.
 
 Broader explicit operation shapes are rejected before serving until complete graph semantics
-ship. Outside the supported two-operation pair, `FromResult` and `after` remain
-unsupported. `FromContext`, collection-backed choices, broader bounds, and adding a third
+ship. `FromResult` and `after` are supported only in a sequential chain where each step has
+exactly one ready operation. `FromContext`, collection-backed choices, broader bounds, and adding a third
 capability cannot fall through to unenforced model
 arguments. Bare callable dependencies retain the legacy agent path. Continue to validate
 inputs and enforce authorization inside every operation; trusted binding does not grant

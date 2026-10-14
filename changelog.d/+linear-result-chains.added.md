@@ -1,0 +1,1 @@
+Support validated sequential operation chains longer than two steps in the unreleased source. Document that each step must have exactly one ready operation; broader graph execution, choices, context, and recovery remain planned.
