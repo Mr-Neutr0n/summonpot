@@ -17,6 +17,12 @@ For agent-backed local wiring, set `SUMMONPOT_MODEL=test`. This avoids provider 
 
 `Runtime` accepts `retries`, Pydantic AI `usage_limits`, and `timeout`. Set limits deliberately for the workload; timeout applies to execution, not side-effect rollback. Provider throttling can be returned as 429; upstream provider errors are surfaced as 502. A request-level timeout maps to 504. See [runtime implementation](https://github.com/tugrulguner/summonpot/blob/main/src/summonpot/runtime.py) and [HTTP mapping](https://github.com/tugrulguner/summonpot/blob/main/src/summonpot/server.py).
 
+## Failure responses and runtime deadline
+
+In v0.10.0, public failure bodies use fixed, redacted messages rather than reflecting exception text, provider response bodies, validation input, prompts, or capability data. The HTTP boundary keeps distinct status categories: `422` for malformed request input or a receiving-operation input-contract mismatch; `429` for usage exhaustion or provider throttling; `502` for invalid operation/model output or other upstream provider failures; `504` for runtime deadline expiry; and `500` for other execution/configuration failures. Do not rely on private exception details or undocumented response fields as a client contract. Normal logs use allowlisted endpoint/failure fields and omit exception text and chains; use your own appropriately access-controlled diagnostics for application-specific investigation.
+
+`Runtime.timeout` is one monotonic runtime deadline covering runtime request preparation, execution, and finalization, with checks before application effects. It does **not** include HTTP body parsing, FastAPI request validation, or response serialization. Synchronous preparation, finalization, and capability functions cannot be preempted while running; a timeout does not establish that such work stopped or that its effects were rolled back. If a timeout happens after an operation starts, its outcome may be uncertain. Design side-effecting operations with application-owned idempotency, transaction, and reconciliation controls. The direct path does not replay through a model after execution starts.
+
 ## Troubleshooting
 
 | Symptom | Likely boundary | What to inspect |

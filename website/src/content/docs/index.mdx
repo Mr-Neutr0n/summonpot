@@ -158,6 +158,10 @@ execution remains planned; see the [roadmap](https://github.com/tugrulguner/summ
 - Closed sets of application-owned callables; optional or required operations.
 - Bounded agent runtime with locally validated response models and limits.
 - A narrow, fully resolved single `Exactly(1)` operation path that executes without resolving or constructing a model.
+- Fixed, redacted failure responses and logs, with distinct input, operation/model output, provider, usage, application, and timeout categories.
+- One monotonic runtime deadline across preparation, execution, and finalization, checked before application effects.
+
+The v0.10.0 deadline excludes HTTP body parsing, request validation, and response serialization. Synchronous work cannot be forcibly stopped, so an operation already running at timeout may still complete its effect. Direct execution does not fall back to a model after it starts. See [failure responses and runtime deadline](/guides/operations/#failure-responses-and-runtime-deadline) for status mappings and application-owned idempotency responsibilities.
 
 Broader multi-operation deterministic execution is **planned**, not shipped. See the [project roadmap](https://github.com/tugrulguner/summonpot/blob/main/ROADMAP.md) and [changelog](https://github.com/tugrulguner/summonpot/blob/main/CHANGELOG.md) for current boundaries.
 
