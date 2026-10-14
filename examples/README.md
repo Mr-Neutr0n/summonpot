@@ -44,9 +44,7 @@ operation-output validation, and one permitted start. Level 7 runs that shipped 
 When the endpoint uses a Pydantic request model, the operation has at least one
 `FromRequest` binding, uses only `FromRequest` or supported immutable callable defaults,
 and its output exactly matches the endpoint response model, Summonpot executes it directly
-without a model; Level 8 runs that path. Unsupported explicit contracts such as
-multi-operation chains, `FromResult`, `FromContext`, `after`, and broader bounds are rejected
-at registration instead of falling back to unenforced model arguments.
+without a model; Level 8 runs that path. Current source also admits one narrow two-operation `Required(..., calls=Exactly(1))` chain linked A→B by `FromResult`, with `FromRequest`/`FromResult` and immutable defaults only. It has no `AgentChoice`, context, or broader bounds and remains agent-mediated, not model-free. The unique terminal operation output annotation must exactly match the endpoint response annotation; its canonical validated result is returned. `FromResult` implies readiness; optional `after` adds success-ordering. Intermediate canonical results are hidden from the model (completion acknowledgments only). Unsupported graphs fail closed. This implementation is beyond historical v0.10.0 and not yet published.
 
 ## Progression
 
@@ -222,11 +220,17 @@ The operation requires a customer identifier of at least three characters even t
 request model accepts any nonempty identifier. The boundary check submits a shorter value
 and verifies that the application operation never starts.
 
+### 10. Sequential result chain
+
+Directory: `10_result_chain/`
+
+Demonstrates an agent-mediated two-operation result chain and an application-owned SQLite inventory. The SQLite code is example application code, not a framework database adapter. Started, failed, or uncertain operations are never replayed in the same run; this does not promise rollback or exactly-once external effects. Cross-request retries require application idempotency.
+
 ## What is intentionally not shown as shipped
 
 The examples do not claim these planned features exist:
 
-- multi-operation deterministic endpoint execution;
+- broader multi-operation graph and model-free execution;
 - SQLAlchemy or SQLite operation adapters;
 - streaming responses;
 - built-in authentication.

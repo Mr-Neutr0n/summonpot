@@ -109,8 +109,8 @@ matching the endpoint response model. It runs without resolving, constructing, o
 multi-operation deterministic compiler remains planned.
 
 Multi-operation graphs, `FromResult`, `FromContext`, `after`, broader call bounds, and
-broader no-model execution remain planned. Current source rejects those shapes when they are
-explicitly declared rather than routing them through an unenforced agent path.
+broader no-model execution remained planned at this release boundary. Later boundaries
+below record the subsequently enforced shapes.
 
 ### 0.8.0 boundary
 
@@ -125,7 +125,7 @@ declared or extra-owned JSON keys without serializing application values.
 This release does not broaden runtime enforcement to multi-operation graphs. The remaining
 result-chain and broader deterministic-execution semantics stay in milestone 2 below.
 
-Current source completes the admission portion of that milestone: only one required typed
+This release line completed the admission portion of that milestone: only one required typed
 operation with `calls=Exactly(1)`, complete supported bindings, declared output, no ordering,
 and no second capability is admitted. `FromRequest` and direct `AgentChoice` are the only
 runtime-supported binding sources. All other explicit shapes fail before serving; bare
@@ -158,6 +158,30 @@ finalization, and capability work cannot be preempted; a timeout after synchrono
 does not prove that an effect did not occur. These guarantees do not add result chains, broader
 deterministic execution, or claim context budgeting.
 
+### Unreleased source boundary: sequential operation pairs
+
+Current source adds a narrow, agent-mediated pair of required `Exactly(1)` operations.
+`FromResult` injects fields from the first operation's locally validated Pydantic result;
+`after` independently requires successful predecessor completion. Declaration order does
+not choose execution order. Both operations use `FromRequest`, `FromResult`, or supported
+immutable callable defaults. Chains containing `AgentChoice`, `FromContext`, broader
+bounds, disconnected nodes, cycles, or more than two operations remain unsupported.
+
+Exactly one operation must declare the endpoint's exact full response annotation, and it
+must be the terminal operation. The endpoint returns that canonical validated result,
+not model-authored success claims. Models see completion acknowledgments, not canonical
+intermediate results. They still orchestrate this slice; no-model multi-operation execution
+remains planned.
+
+Call maxima count starts; required minima count validated successes. Failed, cancelled,
+or uncertain starts retain their reservations. Model retries never replay those effects.
+This does not provide rollback or distributed exactly-once effects; cross-request retries
+need application idempotency. The runnable [inventory example](examples/10_result_chain/README.md)
+uses real application-owned SQLite operations and persisted receipts, not a framework adapter.
+
+This is an unreleased subset of milestone 2, not completion of the broader milestone.
+Version 0.10.0 does not include it.
+
 ## Next milestones
 
 The ordering below prioritizes complete, enforceable contracts before expanding execution.
@@ -176,6 +200,10 @@ No remaining acceptance criteria are listed for this completed milestone. Follow
 work begins at milestone 2.
 
 ### 2. Validated result chains and failure semantics
+
+Status: the two-operation subset above is implemented in unreleased source. The remaining
+milestone expands beyond that pair and establishes broader failure/recovery semantics;
+it must preserve the exercised guarantees below.
 
 Add private multi-operation execution semantics through a useful,
 framework-orchestrated endpoint. The first vertical slice should demonstrate a sequential

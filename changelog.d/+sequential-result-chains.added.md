@@ -1,0 +1,1 @@
+Add a narrow agent-mediated sequential result-chain slice and SQLite inventory example. Current source admits exactly two required `Exactly(1)` operations linked A→B through `FromResult`, returns the canonical terminal result, and rejects unsupported graphs. This is beyond historical v0.10.0 and is not yet published.

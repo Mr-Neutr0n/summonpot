@@ -10,7 +10,9 @@ uses a Pydantic request model and it has at least
 one `FromRequest` binding, uses only `FromRequest` or immutable identity-stable callable
 defaults, and the operation output is exactly the endpoint response model. Bare legacy
 capabilities still use the provider-neutral agent runtime. Unsupported explicit contracts
-are rejected before serving. Broader multi-operation deterministic execution remains planned. The framework
+are rejected before serving. Current source also supports a narrow two-operation sequential
+result chain. Broader multi-operation deterministic execution remains planned. This
+implementation is beyond historical v0.10.0 and is not yet published. The framework
 owns execution, including any agent loop. **The ellipsis is a complete declaration body**,
 not an implementation waiting to be written. Calling the decorated declaration directly is
 rejected; execution goes through the served endpoint.
@@ -167,10 +169,18 @@ The argument sources mean:
 | framework-owned context | `FromContext("key")` |
 | direct or collection-backed model selection | `AgentChoice(...)` |
 
-`FromResult`, `FromContext`, collection-backed `AgentChoice`, and `after=` remain public
-declaration vocabulary for future execution slices, but those explicit shapes are rejected
-during registration today. Binding sources must be exact built-in source types; subclasses
-are rejected. Once `bind=` is present, bind every argument that has no default. Registration rejects
+`FromResult` and `after` are enforced in the unreleased sequential two-operation slice.
+`FromResult` itself establishes producer readiness; `after` independently requires
+successful predecessor completion. The chain has no `AgentChoice` or context bindings
+and is agent-mediated, not model-free. Its unique terminal operation's full output
+annotation must exactly equal the endpoint response annotation. Summonpot returns the
+canonical validated terminal result, not model-authored claims. Intermediate canonical
+results stay hidden from the model; only completion acknowledgments are visible.
+`FromContext` and collection-backed `AgentChoice` remain declaration vocabulary whose
+execution is not yet supported. Unsupported graphs fail closed.
+
+Binding sources must be exact built-in source types; subclasses are rejected. Once
+`bind=` is present, bind every argument that has no default. Registration rejects
 unknown arguments, missing request or result fields, undeclared producers, unreadable
 outputs, invalid `after=` references, and unsupported selectable collection shapes.
 Dependency cycles are structurally unrepresentable through the immutable public
@@ -201,10 +211,19 @@ and `output=` is locally validated before satisfying `Required`. When the endpoi
 Pydantic request model, has at least one `FromRequest` binding, uses only `FromRequest`
 or supported immutable callable defaults, and `output=` is exactly the endpoint response model, Summonpot executes it directly
 without resolving or constructing a model. There is no model fallback after direct
-execution begins. Multi-operation chains, `FromResult`, `FromContext`, `after`,
-collection-backed choices, and broader call bounds are rejected during registration until
-their runtime semantics ship. Bare `Depends(fn)` and `Required(fn)` calls keep their implicit
+execution begins. Multi-operation chains are admitted only as the supported sequential
+pair: two required `Exactly(1)` operations connected by `FromResult` or `after`, using
+`FromRequest`/`FromResult` and supported immutable callable defaults. The pair stays
+agent-mediated and returns the unique terminal operation's canonical validated result.
+`FromContext`, producer-backed choices, broader bounds and unsupported graphs are
+rejected during registration. Direct `AgentChoice` remains supported in the existing
+single-operation form. Bare `Depends(fn)` and `Required(fn)` calls keep their implicit
 legacy bounds; explicit unsupported call bounds are not admitted.
+
+For the pair, call maxima count starts and required minima count locally validated
+successes. Failed, cancelled, or uncertain starts retain their reservations; model retries
+never replay them. This is not rollback or distributed exactly-once execution. Applications
+must implement cross-request idempotency, as the inventory example does.
 
 For both direct and agent-backed execution in that supported slice, an injected
 `FromRequest` value must satisfy its receiving operation parameter, including `Annotated`

@@ -1,6 +1,6 @@
 # Sequential result chain: inventory reservation
 
-A small real service: the first required operation reads the requested SKU and its current revision from SQLite; the second receives that validated snapshot via `FromResult`, uses the request's idempotency key, and commits inventory plus a canonical reservation receipt in application-owned SQLite code. `after` makes the ordering explicit. The terminal operation's output model is the endpoint's exact response model.
+A small real service: the first required operation reads the requested SKU and its current revision from SQLite; the second receives that validated snapshot via `FromResult`, uses the request's idempotency key, and commits inventory plus a canonical reservation receipt in application-owned SQLite code. `FromResult` establishes readiness itself; the optional `after` declaration also states success ordering explicitly. The terminal operation's output model is the endpoint's exact response model.
 
 ## Run it
 

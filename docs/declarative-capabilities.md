@@ -93,8 +93,13 @@ direct `AgentChoice`, or callable defaults. Trusted/defaulted arguments are abse
 model schema, the single start is reserved before application code, and `output=` is
 validated before the operation satisfies `Required`.
 
-Multi-operation chains, `FromResult`, `FromContext`, `after`, collection-backed choices, and
-broader call bounds remain planned and are rejected at registration. See
+Unreleased source also admits a sequential pair of required `Exactly(1)` operations
+connected by `FromResult` or `after`. Bound result fields are read only after local producer
+validation, and the response is the canonical result of the unique terminal operation whose
+full output annotation exactly matches the endpoint. The pair remains agent-mediated;
+canonical results stay outside model context. `FromContext`, collection-backed choices,
+broader graphs and bounds remain planned and rejected at registration. See
+[`10_result_chain`](../examples/10_result_chain/README.md) for the persisted inventory example and
 [`08_direct_execution.py`](../examples/08_direct_execution.py) for the
 credential-free direct slice, [`07_bound_operation.py`](../examples/07_bound_operation.py)
 for the agent-backed enforced slice, and [`06_support_service`](../examples/06_support_service/app.py)
@@ -242,8 +247,9 @@ string constraints, custom literal values, custom instance-checking metaclasses,
 unsupported core schemas are rejected at registration rather than silently stripped.
 
 Broader explicit operation shapes are rejected before serving until complete graph semantics
-ship. In particular, `FromResult`, `FromContext`, `after`, collection-backed choices,
-broader bounds, and adding another capability cannot fall through to unenforced model
+ship. Outside the supported two-operation pair, `FromResult` and `after` remain
+unsupported. `FromContext`, collection-backed choices, broader bounds, and adding a third
+capability cannot fall through to unenforced model
 arguments. Bare callable dependencies retain the legacy agent path. Continue to validate
 inputs and enforce authorization inside every operation; trusted binding does not grant
 authorization or prove that final model claims match operation results.

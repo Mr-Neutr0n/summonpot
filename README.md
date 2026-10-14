@@ -429,13 +429,33 @@ subclass, and Python's numeric widening permits `int` or `bool` to feed `float`.
 > Registration validates and stores every binding source. Runtime enforcement covers one
 > required `Exactly(1)` operation using `FromRequest`, direct `AgentChoice`, and callable
 > defaults. When every required value is application-owned and the operation output exactly
-> matches the endpoint response model, that operation executes without a model. `FromResult`,
-> `FromContext`, `after`, broader call bounds, and multi-operation direct paths remain
-> planned and are rejected before serving when explicitly declared. Binding sources must be
+> matches the endpoint response model, that operation executes without a model.
+> Unreleased source also enforces a sequential pair of required `Exactly(1)` operations
+> connected by `FromResult` or `after`. That pair remains agent-mediated and returns the
+> unique terminal operation's canonical validated result. `FromContext`, broader call
+> bounds and graphs, and multi-operation direct paths remain planned. Binding sources must be
 > exact built-in vocabulary types; user-defined subclasses are rejected too. Bare callable
 > dependencies without an explicit `Operation` contract remain compatible. `Operation(fn)`
 > is still an explicit contract, so it is rejected unless the declaration supplies the
 > complete enforced shape.
+
+### Unreleased: validated result chains
+
+A lookup can now feed a second required operation without asking the model to reconstruct
+its arguments. Declare two `Required(..., calls=Exactly(1))` operations; use `FromResult`
+for validated result fields and `after` for independent success ordering. Only the ready
+operation is exposed, and readiness is checked again before invocation.
+
+The pair accepts `FromRequest`, `FromResult`, and supported immutable defaults—not
+`AgentChoice` or context bindings. Its unique terminal operation must declare the exact
+endpoint response annotation. Summonpot returns that operation's validated result; the
+model cannot invent a receipt. Canonical intermediate results stay outside model context.
+
+This slice is agent-mediated, not model-free. Starts remain reserved after failure or
+uncertain timeout; model retries cannot replay effects. Applications own cross-request
+idempotency and transactions. See the runnable [SQLite inventory reservation example](examples/10_result_chain/README.md)
+for a real persisted receipt and independent database checks. These application-owned
+operations do not imply a framework database adapter. This feature is not in PyPI 0.10.0.
 
 ## How it works today
 
@@ -498,12 +518,11 @@ Summonpot chooses its current execution path without adding a second endpoint AP
 |---|---|
 | Pydantic request model, one required `Exactly(1)` operation, at least one `FromRequest` binding, only `FromRequest` or immutable identity-stable defaults, exact response-model output | Execute directly without a model |
 | A direct `AgentChoice` remains in the admitted single-operation shape | Use the agent runtime with the enforced operation contract |
+| Supported sequential pair of required `Exactly(1)` operations (unreleased source) | Agent-mediated readiness and result binding; return the canonical terminal result |
 | Bare callable capabilities with implicit marker bounds | Use the legacy agent runtime |
 | Unsupported explicit binding, ordering, bound, output, or multi-operation shape | Reject during registration |
 
-Broader graph execution and ordering, multi-operation deterministic execution,
-SQLAlchemy/SQLite operation adapters, write receipts, streaming, and built-in
-authentication are **planned, not shipped**. See
+Broader graph execution, multi-operation deterministic execution, SQLAlchemy/SQLite operation adapters, write receipts, streaming, and built-in authentication are **planned, not shipped**. See
 [ROADMAP.md](ROADMAP.md) for the design boundaries and implementation order.
 
 
@@ -714,7 +733,7 @@ Useful places to contribute include:
 - executable examples for real application workflows;
 - provider and HTTP acceptance coverage;
 - clearer errors, safer defaults, and API ergonomics;
-- `FromResult`/`FromContext` binding, broader capability-graph execution, and ordering;
+- broader capability-graph execution, `FromContext`, and ordering;
 - exact database-operation adapters;
 - broader deterministic execution compilation described in the roadmap;
 - documentation, diagrams, and reproducible bug reports.
