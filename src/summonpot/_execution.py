@@ -25,8 +25,11 @@ from summonpot._output_validation import (
     _compile_output_validator,
     _reject_ambiguous_object_namespaces,
 )
-from summonpot._validation import _enforced_contract_tool_index
-from summonpot.contracts import AgentChoice, FromRequest
+from summonpot._validation import (
+    _chain_contract_tool_indices,
+    _enforced_contract_tool_index,
+)
+from summonpot.contracts import AgentChoice, FromRequest, FromResult
 from summonpot.models import EndpointDef, ParamDef, ToolDef
 
 
@@ -50,6 +53,7 @@ class _CompiledBinding:
     argument: str
     source: Any
     validator: _CompiledReceivingValidator | None
+    producer_identity: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +125,7 @@ class _CompiledTool:
     output_adapter: TypeAdapter[Any] | None
     output_validator: SchemaValidator | None
     enforce_bound_exactly_once: bool
+    predecessors: tuple[int, ...] = ()
 
     @property
     def visible_signature(self) -> inspect.Signature:
@@ -163,6 +168,7 @@ class _CompiledEndpoint:
     path_parameter_names: tuple[str, ...]
     tools: tuple[_CompiledTool, ...]
     direct_tool: int | None
+    response_producer: int | None = None
 
 
 _REGISTERED_PLANS: dict[int, tuple[ReferenceType[EndpointDef], _CompiledEndpoint]] = {}
@@ -994,6 +1000,8 @@ class _OperationState:
     started: int = 0
     running: int = 0
     succeeded: int = 0
+    result: Any = None
+    outcome: str = "not_started"
 
 
 @dataclass(slots=True)
@@ -1029,6 +1037,34 @@ def _compile_endpoint(
         if output is not None:
             _reject_ambiguous_object_namespaces(TypeAdapter(output).core_schema)
     enforce_index = _enforced_contract_tool_index(source_tools)
+    chain_indices = _chain_contract_tool_indices(source_tools)
+    terminal_contract = (
+        source_tools[chain_indices[-1]].contract if chain_indices else None
+    )
+    if terminal_contract is not None and terminal_contract.output is not (
+        endpoint.output_annotation or endpoint.output_model
+    ):
+        raise TypeError(
+            "A compiled result chain must terminate in the exact endpoint response annotation."
+        )
+    if chain_indices is not None:
+        response_annotation = endpoint.output_annotation or endpoint.output_model
+        if (
+            sum(
+                tool.contract is not None
+                and tool.contract.output is response_annotation
+                for tool in source_tools
+            )
+            != 1
+        ):
+            raise TypeError(
+                "A result chain requires a unique endpoint response producer."
+            )
+    operation_identities = {
+        tool.contract: index
+        for index, tool in enumerate(source_tools)
+        if tool.contract is not None
+    }
     direct_index = (
         _direct_tool_index(endpoint, source_tools, enforce_index)
         if allow_direct
@@ -1038,8 +1074,11 @@ def _compile_endpoint(
         _compile_tool(
             tool,
             index,
-            enforce=index == enforce_index,
-            snapshot_defaults=index == direct_index,
+            enforce=index == enforce_index
+            or bool(chain_indices and index in chain_indices),
+            snapshot_defaults=index == direct_index
+            or bool(chain_indices and index in chain_indices),
+            operation_identities=operation_identities,
         )
         for index, tool in enumerate(source_tools)
     )
@@ -1072,6 +1111,7 @@ def _compile_endpoint(
         path_parameter_names=tuple(endpoint.path_parameter_names),
         tools=tools,
         direct_tool=direct_index,
+        response_producer=(chain_indices[-1] if chain_indices else None),
     )
 
 
@@ -1666,7 +1706,9 @@ def _compile_tool(
     *,
     enforce: bool,
     snapshot_defaults: bool,
+    operation_identities: Mapping[Any, int] | None = None,
 ) -> _CompiledTool:
+    operation_identities = {} if operation_identities is None else operation_identities
     signature, annotations = _resolved_signature(tool.fn)
     if enforce:
         resolved_parameters = {
@@ -1697,8 +1739,11 @@ def _compile_tool(
                 name,
                 source,
                 _compile_receiving_validator(signature.parameters[name].annotation)
-                if isinstance(source, FromRequest)
+                if isinstance(source, (FromRequest, FromResult))
                 and signature.parameters[name].annotation is not inspect.Parameter.empty
+                else None,
+                operation_identities.get(source.operation)
+                if isinstance(source, FromResult)
                 else None,
             )
             for name, source in contract.bind.items()
@@ -1739,6 +1784,22 @@ def _compile_tool(
             else None
         ),
         enforce_bound_exactly_once=enforce,
+        predecessors=tuple(
+            dict.fromkeys(
+                operation_identities[producer]
+                for producer in (
+                    *(
+                        source.operation
+                        for source in contract.bind.values()
+                        if isinstance(source, FromResult)
+                    ),
+                    *contract.after,
+                )
+                if producer in operation_identities
+            )
+        )
+        if contract is not None and contract.bind is not None
+        else (),
     )
 
 

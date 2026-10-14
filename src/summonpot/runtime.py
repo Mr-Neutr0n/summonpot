@@ -12,7 +12,7 @@ import time
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from pydantic_ai import Agent, ModelRetry, RunContext, Tool
 from pydantic_ai.models import Model
 from pydantic_ai.usage import UsageLimits
@@ -66,7 +66,20 @@ class _ApplicationOperationTimeout(TimeoutError):
     """An application operation raised TimeoutError (not the runtime deadline)."""
 
 
-def _tracked_operation(tool: _CompiledTool) -> Any:
+def _chain_prepare(tool: _CompiledTool) -> Any:
+    async def prepare(ctx: RunContext[_EndpointRun], tool_def: Any) -> Any:
+        async with ctx.deps.lock:
+            state = ctx.deps.states[tool.identity]
+            if state.started or any(
+                ctx.deps.states[i].succeeded == 0 for i in tool.predecessors
+            ):
+                return None
+        return tool_def
+
+    return prepare
+
+
+def _tracked_operation(tool: _CompiledTool, *, chain: bool = False) -> Any:
     """Build a model tool backed by one immutable compiled capability."""
     visible_signature = tool.visible_signature
 
@@ -77,7 +90,7 @@ def _tracked_operation(tool: _CompiledTool) -> Any:
         # Tool argument validation runs before this callback. Enforce the request
         # deadline here, before either legacy or guarded application dispatch.
         _check_runtime_deadline()
-        if not tool.enforce_bound_exactly_once:
+        if not chain and not tool.enforce_bound_exactly_once:
             try:
                 result = await _call_capability(tool.fn, *capability_args, **kwargs)
             except _RuntimeDeadlineExceeded:
@@ -92,9 +105,11 @@ def _tracked_operation(tool: _CompiledTool) -> Any:
             async with ctx.deps.lock:
                 ctx.deps.states[tool.identity].succeeded += 1
             return result
-
         supplied = visible_signature.bind(*capability_args, **kwargs).arguments
-        return await _invoke_bound_operation(tool, ctx.deps, supplied)
+        if chain and not tool.enforce_bound_exactly_once:
+            raise ModelRetry("Chained operations require compiled bound execution.")
+        result = await _invoke_bound_operation(tool, ctx.deps, supplied)
+        return {"status": "completed"} if chain else result
 
     annotations = {
         name: annotation
@@ -147,6 +162,36 @@ async def _invoke_bound_operation(
                     "parameter contract."
                 ) from None
             values[binding.argument] = value
+        elif binding.producer_identity is not None:
+            producer = run.states[binding.producer_identity]
+            if producer.outcome != "succeeded":
+                raise ModelRetry("A predecessor has not completed successfully.")
+            value = producer.result
+            if isinstance(value, BaseModel):
+                storage = BaseModel.__dict__["__dict__"].__get__(value, type(value))
+                if type(storage) is not dict or any(
+                    type(key) is not str for key in dict.keys(storage)
+                ):
+                    raise _OperationInputError(
+                        "Producer model storage is not safe to read."
+                    )
+                if binding.source.field not in storage:
+                    raise _OperationInputError("Producer field is unavailable.")
+                value = dict.__getitem__(storage, binding.source.field)
+            elif type(value) is dict:
+                if (
+                    any(type(key) is not str for key in dict.keys(value))
+                    or binding.source.field not in value
+                ):
+                    raise _OperationInputError("Producer field is unavailable.")
+                value = dict.__getitem__(value, binding.source.field)
+            else:
+                raise _OperationInputError("Producer result has no safe field storage.")
+            if binding.validator is not None and not binding.validator.accepts(value):
+                raise _OperationInputError(
+                    "Producer value failed the receiving parameter contract."
+                )
+            values[binding.argument] = value
         elif isinstance(binding.source, AgentChoice):
             # Already validated against the model-visible signature when agent-owned.
             continue
@@ -156,12 +201,15 @@ async def _invoke_bound_operation(
         # Admission is the effect boundary: validation/reservation/lock contention
         # may consume the remaining budget, so check only after acquiring the lock.
         _check_runtime_deadline()
+        if any(run.states[i].outcome != "succeeded" for i in tool.predecessors):
+            raise ModelRetry("A predecessor has not completed successfully.")
         if tool.maximum is not None and state.started >= tool.maximum:
             raise ModelRetry(
                 f"Capability {tool.name!r} may run exactly once and has already started."
             )
         state.started += 1
         state.running += 1
+        state.outcome = "running"
 
     try:
         try:
@@ -182,12 +230,30 @@ async def _invoke_bound_operation(
             raise _OperationOutputError(
                 f"Capability {tool.name!r} returned an invalid declared output."
             ) from exc
+    except BaseException as exc:
+        deadline = _runtime_deadline.get()
+        async with run.lock:
+            state.outcome = (
+                "outcome_unknown"
+                if isinstance(exc, asyncio.CancelledError)
+                or (deadline is not None and time.monotonic() >= deadline)
+                else "failed"
+            )
+        raise
     finally:
         async with run.lock:
             state.running -= 1
 
+    try:
+        _check_runtime_deadline()
+    except _RuntimeDeadlineExceeded:
+        async with run.lock:
+            state.outcome = "outcome_unknown"
+        raise
     async with run.lock:
         state.succeeded += 1
+        state.result = validated
+        state.outcome = "succeeded"
     return validated
 
 
@@ -365,7 +431,18 @@ class Runtime:
                 ) from None
             raise
         check_deadline()
-        output = result.output
+        chain = plan.response_producer is not None
+        if chain:
+            producer_identity = plan.response_producer
+            assert producer_identity is not None
+            producer_state = run.states[producer_identity]
+            if producer_state.outcome != "succeeded":
+                raise _OperationOutputError(
+                    "The terminal capability did not complete successfully."
+                )
+            output = producer_state.result
+        else:
+            output = result.output
 
         if plan.output_model is not None:
             assert plan.output_auditor is not None
@@ -399,16 +476,21 @@ class Runtime:
     ) -> Agent[_EndpointRun, Any]:
         tools = [
             Tool(
-                _tracked_operation(tool),
+                _tracked_operation(tool, chain=plan.response_producer is not None),
                 name=tool.name,
                 description=tool.description,
                 takes_ctx=True,
+                prepare=_chain_prepare(tool)
+                if plan.response_producer is not None
+                else None,
             )
             for tool in plan.tools
         ]
         agent = Agent(
             model,
-            output_type=plan.output_model or str,
+            output_type=str
+            if plan.response_producer is not None
+            else (plan.output_model or str),
             system_prompt=plan.description,
             tools=tools,
             retries=self.retries,

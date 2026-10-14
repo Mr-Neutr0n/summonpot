@@ -149,8 +149,7 @@ model returns placeholder response strings, not a useful semantic summary. Respo
 validation does not prove that final text reproduces the operation's result.
 
 A fully application-bound operation in the supported single-operation shape can instead
-execute directly without resolving a model. Broader multi-operation deterministic
-execution remains planned; see the [roadmap](https://github.com/tugrulguner/summonpot/blob/main/ROADMAP.md).
+execute directly without resolving a model. A narrow two-operation result chain is also supported by current source, but it remains agent-mediated and does not enable broader deterministic graph execution. This implementation is beyond historical v0.10.0 and is not yet published; see the [roadmap](https://github.com/tugrulguner/summonpot/blob/main/ROADMAP.md).
 
 ## Shipped today
 
@@ -163,7 +162,7 @@ execution remains planned; see the [roadmap](https://github.com/tugrulguner/summ
 
 The v0.10.0 deadline excludes HTTP body parsing, request validation, and response serialization. Synchronous work cannot be forcibly stopped, so an operation already running at timeout may still complete its effect. Direct execution does not fall back to a model after it starts. See [failure responses and runtime deadline](/guides/operations/#failure-responses-and-runtime-deadline) for status mappings and application-owned idempotency responsibilities.
 
-Broader multi-operation deterministic execution is **planned**, not shipped. See the [project roadmap](https://github.com/tugrulguner/summonpot/blob/main/ROADMAP.md) and [changelog](https://github.com/tugrulguner/summonpot/blob/main/CHANGELOG.md) for current boundaries.
+The narrow two-operation sequential chain is also supported by current source and remains agent-mediated, not model-free; broader multi-operation deterministic execution remains planned. This implementation is beyond historical v0.10.0 and not yet published. See the [project roadmap](https://github.com/tugrulguner/summonpot/blob/main/ROADMAP.md) and [changelog](https://github.com/tugrulguner/summonpot/blob/main/CHANGELOG.md) for current boundaries.
 
 ## Part of ModePot
 

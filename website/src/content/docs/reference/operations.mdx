@@ -47,7 +47,7 @@ This is signature notation rather than a runnable fragment: `callable` and `Resu
 - The first argument is the exact application callable.
 - `bind` maps callable parameter names to explicit sources. Missing, extra, incompatible, or unsupported explicit sources fail during endpoint registration.
 - `output` declares the operation result schema. In the bound runtime it is locally validated before successful completion; a validation error is not retried automatically.
-- `after` and `FromResult` / `FromContext` are public vocabulary for planned graph semantics, not working execution features in this release slice.
+- The narrow current-source sequential chain is exactly two required `Exactly(1)` operations linked A→B by `FromResult` or `after`, with `FromRequest`/`FromResult` and immutable defaults only. It has no `AgentChoice`, context, or broader bounds and remains agent-mediated, not model-free. The unique terminal output annotation must exactly match the endpoint response annotation; the validated canonical terminal result is returned. `FromResult` establishes readiness; optional `after` adds success-ordering. Intermediate canonical results are hidden from the model; only completion acknowledgments are visible. Unsupported graphs fail closed. This source is beyond historical v0.10.0 and is not yet published.
 - An `Operation` object is immutable at the declaration boundary: binding mappings are snapshotted and `after` is tuple-normalized.
 
 ### Binding sources
@@ -56,14 +56,14 @@ This is signature notation rather than a runnable fragment: `callable` and `Resu
 |---|---|---|
 | `FromRequest("field")` | Validated request | Canonical request value injected by framework; hidden from agent argument schema. |
 | `AgentChoice()` | Agent/model | The specific argument remains model supplied in the supported agent-backed bound-operation slice. |
-| `FromResult(operation, "field")` | Prior operation result | Planned graph vocabulary; not supported execution. |
+| `FromResult(operation, "field")` | Validated producer result | Supported only for the narrow two-operation sequential chain. |
 | `FromContext("key")` | Framework context | Planned context injection; not supported execution. |
 
 `FromRequest` values are checked against the receiving callable parameter noncoercively before application code begins. This is data validation, not authentication or authorization. For supported bounds and receiver schema edge cases, consult the [detailed capability contract](https://github.com/tugrulguner/summonpot/blob/main/docs/declarative-capabilities.md#arguments-are-constrained-for-the-first-bound-runtime-slice).
 
 ### Explicit shapes accepted today
 
-The shipped runtime-enforced explicit operation slice is one required `Exactly(1)` operation with a complete argument contract using `FromRequest`, direct `AgentChoice`, or supported callable defaults. `output=` must be declared for the operation result checks. Registration rejects unsupported explicit shapes rather than falling back to arbitrary model-supplied arguments. The no-model sub-slice further requires: Pydantic request model, at least one `FromRequest`, no `AgentChoice`, all remaining parameters request-bound or supported immutable callable defaults, and `output` identical (`is`) to endpoint response model.
+The released runtime-enforced explicit slice is the single-operation contract. Unreleased source adds one narrow two-operation result chain. The chain requires two required `Exactly(1)` operations, A→B `FromResult` or independent `after` ordering, and only `FromRequest`/`FromResult` plus immutable defaults. It has no `AgentChoice`, context, or broader bounds; it is agent-mediated, not model-free. Its unique terminal output annotation must exactly match the endpoint response annotation, and its validated canonical result is returned. `FromResult` establishes readiness; optional `after` adds success-ordering. Intermediate canonical results remain hidden from the model (completion acknowledgments only). Unsupported graphs fail registration.
 
 Immutable defaults are exact built-in `None`, `bool`, `int`, `float`, `complex`, `str`, `bytes`; tuples/frozensets recursively containing only these values are also supported. Mutable defaults, custom types/subclasses, and scalar request declarations do not qualify for direct execution.
 
@@ -73,13 +73,14 @@ Immutable defaults are exact built-in `None`, `bool`, `int`, `float`, `complex`,
 | Complete sole required operation with a direct `AgentChoice` | Agent-backed runtime; only declared choice values are model supplied. |
 | Bare legacy callable dependency | Existing provider-neutral agent path. |
 | Unsupported/incomplete explicit `Operation` contract | Rejected during registration. |
-| Multi-operation graph, `FromResult`, `FromContext`, `after`, broader compiler | Planned, not shipped. |
+| Narrow two-operation `FromResult` chain | Agent-mediated sequential execution; canonical terminal result returned. |
+| Unsupported graph or explicit contract | Rejected during registration. |
 
 No runtime fallback to a model occurs after direct execution begins. One reserved start is not exactly-once completion: failures and side effects are application concerns.
 
 ## Output and error behavior
 
-Operation output validation occurs before the call counts as successful for `Required`. Endpoint output is validated against its declared response model. These are schema/type guarantees, not proof that final model prose is derived from operation output. Provider calls may fail or exceed usage limits; HTTP maps invalid request/injected values to 422, usage limits to 429, timeout to 504, and upstream provider errors to 429 (provider throttling) or 502. Public error text is intentionally fixed/redacted; internal diagnostic details go to server logs. Exact error mapping is implemented in [`server.py`](https://github.com/tugrulguner/summonpot/blob/main/src/summonpot/server.py).
+Operation output validation occurs before the call counts as successful for `Required`. Endpoint output is validated against its declared response model. For legacy and single-operation agent synthesis, these schema/type guarantees do not prove that model prose derives from operation output. The supported pair instead returns the canonical terminal result. Provider calls may fail or exceed usage limits; HTTP maps invalid request/injected values to 422, usage limits to 429, timeout to 504, and upstream provider errors to 429 (provider throttling) or 502. Public error text is intentionally fixed/redacted; normal server logs omit exception details and capability data. Exact error mapping is implemented in [`server.py`](https://github.com/tugrulguner/summonpot/blob/main/src/summonpot/server.py).
 
 ## Security and side effects
 
@@ -87,4 +88,4 @@ Capabilities are real application callables, not simulations. Keep the declared 
 
 ## Planned vocabulary
 
-`FromResult`, `FromContext`, `after`, collection-backed choices, broader call bounds in operation graphs, and a multi-operation deterministic compiler are not supported execution shapes. They may be declaration vocabulary; do not build copyable examples that execute them or imply registration acceptance. The roadmap tracks future work. No documented endpoint declaration currently compiles a general dependency graph into model-free execution.
+`FromContext`, collection-backed choices, broader call bounds in operation graphs, broader graph shapes, and a multi-operation deterministic compiler remain unsupported. `FromResult` and `after` work only in the exact narrow two-operation chain described above; no general dependency graph or model-free multi-operation execution is supported. Started, failed, or uncertain operations are not replayed in the same run, but this is not rollback or exactly-once external-effect protection; cross-request retries require application idempotency.

@@ -121,6 +121,18 @@ def test_skill_states_the_current_binding_execution_boundary():
     assert "rejected at registration" in body
 
 
+def test_skill_documents_sequential_chain_authority_and_unreleased_boundary():
+    body = " ".join(skill_body().split())
+    assert "unreleased sequential two-operation slice" in body
+    assert "unique terminal operation's full output annotation" in body
+    assert "canonical validated terminal result, not model-authored claims" in body
+    assert "agent-mediated, not model-free" in body
+    assert "only completion acknowledgments are visible" in body
+    assert "call maxima count starts" in body
+    assert "uncertain starts retain their reservations" in body
+    assert "Direct `AgentChoice` remains supported" in body
+
+
 def test_skill_uses_the_current_ai_api_positioning_and_direct_runtime_boundary():
     body = " ".join(skill_body().split())
     body_lower = body.lower()
