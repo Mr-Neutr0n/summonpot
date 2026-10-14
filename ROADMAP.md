@@ -177,8 +177,36 @@ work begins at milestone 2.
 
 ### 2. Validated result chains and failure semantics
 
-Add the first private multi-operation execution semantics through a sequential required
-`Exactly(1)` chain:
+Add private multi-operation execution semantics through a useful,
+framework-orchestrated endpoint. The first vertical slice should demonstrate a sequential
+required-operation chain that composes validated results into a final response without
+asking endpoint authors to write orchestration code. Keep the acceptance contract focused
+on the demonstrated behavior rather than promising a general graph API or fixing a public
+maximum chain length:
+
+- Declare the fixed endpoint goal, typed request/response, and exact application-owned
+  operations in a useful chain. Keep the endpoint body declarative; Summonpot owns readiness,
+  invocation, validated-result transfer, and response production.
+- Use `FromResult` to pass only a producer's locally validated output into a downstream
+  operation. This data dependency itself establishes result readiness; use `after` when an
+  additional success-ordering dependency is required independently of data flow.
+- Make the terminal operation the explicit final-response producer: its declared output is
+  validated against the endpoint response contract and is the response returned to the
+  caller. Do not use a model-authored response as a substitute for a validated operation
+  result in this agent-mediated chain.
+- Resolve and validate the complete declared chain before any operation starts;
+  execute it sequentially, with stable dependency order and identity-keyed results.
+- Exercise a useful application-owned flow with two distinct operations, not merely a
+  pair of toy pass-through functions. Keep operation implementations application-owned;
+  Summonpot supplies the contract enforcement and orchestration.
+
+The first slice is deliberately bounded by its tested sequential acceptance cases. It does
+not claim a general graph executor, arbitrary parallelism, or arbitrary endpoint-wide
+transactionality. The chain is initially agent-mediated: Summonpot owns operation readiness,
+argument binding, validation, and result transfer, while the agent may choose which ready
+operation to invoke. The broader model-free multi-operation compiler remains planned.
+
+Failure semantics ship with the chain, not as a later write-adapter feature:
 
 - Store validated results by operation identity for the lifetime of one request.
 - Inject `FromResult` values only after their declared producer succeeds.
@@ -200,6 +228,10 @@ Failure semantics ship with the chain, not as a later write-adapter feature:
   imply rollback, endpoint-wide atomicity, or distributed exactly-once completion for arbitrary
   callables.
 - Test partial failure and response-validation failure after a successful write.
+- Prove with invocation counters that if the second operation fails after the first has
+  completed, a retry or recovery attempt does not replay the first operation. Preserve
+  the completed result and failed/uncertain reservation for the request; never restart
+  the whole endpoint or ask a model to reconstruct a plan after effects begin.
 
 Execution remains sequential initially. Parallel ready operations are deferred until
 idempotency, transaction, or read-only semantics make concurrency safe.

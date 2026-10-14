@@ -39,7 +39,7 @@ try {
   });
   check(state.theme===theme,`${width}: theme mismatch`);
   check(state.installCommand==='pip install "summonpot[serve,cli]"',`${width}/${theme}: install command must preserve ASCII shell quotes: ${state.installCommand}`);
-  check(state.h1.length===1&&state.h1[0]==='APIs for the AI era, one simple contract.',`${width}: expected one canonical first-fold H1: ${state.h1.join('|')}`);
+  check(state.h1.length===1&&state.h1[0]==='Define the endpoint. Summonpot owns the orchestration.',`${width}: expected one canonical first-fold H1: ${state.h1.join('|')}`);
   check(state.hero&&state.copy&&state.art&&state.image,`${width}: hero geometry/art missing`);
   if(width===1280){
    await page.setViewportSize({width:320,height:850});

@@ -22,7 +22,7 @@ def test_readme_family_presentation():
 def test_readme_promotes_the_live_quickstart_playground_and_deep_docs():
     readme = (Path(__file__).resolve().parents[1] / "README.md").read_text()
     intro = readme.split("## Why summonpot?", 1)[0]
-    assert "APIs for the AI era, one simple contract." in intro
+    assert "Define the endpoint. Summonpot owns the orchestration." in intro
     assert 'href="https://summonpot.modepot.io/quick-start/">Quick start<' in intro
     assert 'href="https://summonpot.modepot.io/playground/">Playground<' in intro
     assert 'href="https://summonpot.modepot.io/architecture/">Deep docs<' in intro
