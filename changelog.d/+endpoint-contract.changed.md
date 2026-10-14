@@ -1,0 +1,1 @@
+Clarify the endpoint contract and framework-owned orchestration across the README, roadmap, and website. Keep the planned result-chain acceptance focused on validated terminal operation output, agent-mediated orchestration, and the distinction from the broader deferred model-free compiler.

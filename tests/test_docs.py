@@ -170,6 +170,22 @@ def test_roadmap_advances_after_the_narrow_no_model_slice():
     )
 
 
+def test_public_positioning_centers_endpoint_contract_and_owned_orchestration():
+    readme = " ".join(README.read_text(encoding="utf-8").split())
+    homepage = " ".join(HOMEPAGE.read_text(encoding="utf-8").split())
+    roadmap = " ".join(ROADMAP.read_text(encoding="utf-8").split())
+
+    for surface in (readme, homepage):
+        assert "exact application-owned operations" in surface
+        assert "Summonpot orchestrates" in surface
+        assert "bounded choice" in surface
+    assert "terminal operation the explicit final-response producer" in roadmap
+    assert "data dependency itself establishes result readiness" in roadmap
+    assert "agent-mediated" in roadmap
+    assert "broader model-free multi-operation compiler remains planned" in roadmap
+    assert "maximum chain length" in roadmap
+
+
 def test_public_docs_describe_one_permitted_start_not_exactly_once_execution():
     for path in (README, CHANGELOG, ROADMAP):
         text = path.read_text(encoding="utf-8")

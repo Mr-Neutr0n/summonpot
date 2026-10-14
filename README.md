@@ -7,11 +7,11 @@
 <p align="center">Part of <a href="https://modepot.io/">ModePot</a>. &nbsp; <a href="https://summonpot.modepot.io/">Project website</a> &nbsp; <a href="https://tugrul.modepot.io/">Created by Tugrul Guner</a></p>
 
 <p align="center">
-  <strong>APIs for the AI era, one simple contract.</strong>
+  <strong>Define the endpoint. Summonpot owns the orchestration.</strong>
 </p>
 
 <p align="center">
-  Combine deterministic, application-owned operations with agent-owned decisions under bounded authority. Keep one typed endpoint contract from request to response.
+  Declare the request, fixed goal, exact application-owned operations, and response. Summonpot orchestrates those operations; the agent chooses only where the contract leaves a bounded choice.
 </p>
 
 <p align="center">

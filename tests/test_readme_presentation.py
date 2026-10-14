@@ -20,15 +20,13 @@ def test_readme_preserves_signature_hero_and_unified_framework_value():
     assert (
         '<img src="summonpot-lockup.png" alt="Summonpot" width="600">' in introduction
     )
-    assert "apis for the ai era, one simple contract" in normalized_introduction
     assert (
-        "combine deterministic, application-owned operations with agent-owned decisions "
-        "under bounded authority" in normalized_introduction
-    )
-    assert (
-        "one typed endpoint contract from request to response"
+        "define the endpoint. summonpot owns the orchestration"
         in normalized_introduction
     )
+    assert "exact application-owned operations" in normalized_introduction
+    assert "summonpot orchestrates those operations" in normalized_introduction
+    assert "bounded choice" in normalized_introduction
     assert "summonpot modernizes apis for ai" in normalized_introduction
     assert (
         "deterministic and agentic endpoints use the same declaration style"
