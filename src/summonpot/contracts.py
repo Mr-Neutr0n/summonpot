@@ -5,10 +5,9 @@ also say *where each argument's value comes from*, which is what makes the execu
 path a computable property rather than a guess.
 
 This module is declaration vocabulary. Registration validates every contract before
-serving. The runtime currently enforces the first narrow execution slice: one required
-``Exactly(1)`` operation whose arguments come from ``FromRequest``, ``AgentChoice``, or
-callable defaults. Result chains, context injection, and broader graph execution remain
-later work.
+serving. The runtime currently enforces one required ``Exactly(1)`` operation and a uniquely
+ordered sequential chain. Producer-backed choices are supported only in those chains;
+context injection and broader graph execution remain later work.
 """
 
 from __future__ import annotations
@@ -61,8 +60,12 @@ class AgentChoice(ArgumentSource):
 
     The only *argument source* a declaration does not determine. In the shipped
     single-operation bound runtime, ``FromRequest`` and defaulted arguments are hidden
-    from the model while ``AgentChoice`` arguments remain in its tool schema. Broader
-    result-chain and context bindings remain planned.
+    from the model while direct ``AgentChoice`` arguments remain in its tool schema.
+    In sequential chains, ``AgentChoice(from_result=producer)`` instead selects one
+    member of that producer's locally validated list of concrete Pydantic models. The
+    model sees only opaque per-request tokens and inert projected descriptions; local
+    membership uses token identity, never Python equality. Context bindings remain
+    planned.
 
     This is a claim about one argument, not about an endpoint. An endpoint whose every
     argument is bound may still need a model — for an unresolved ordering, a choice

@@ -31,6 +31,7 @@ EXAMPLES = [
     ("09_contract_boundaries/app.py", "/customers/view", "post"),
     ("10_result_chain/app.py", "/reservations", "post"),
     ("11_linear_result_chain/app.py", "/reservations", "post"),
+    ("12_producer_choice/app.py", "/orders", "post"),
 ]
 
 

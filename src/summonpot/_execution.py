@@ -125,6 +125,8 @@ class _CompiledTool:
     output_adapter: TypeAdapter[Any] | None
     output_validator: SchemaValidator | None
     enforce_bound_exactly_once: bool
+    output_projection: _ProjectionSchema | None = None
+    output_definitions: Mapping[str, _ProjectionSchema] | None = None
     predecessors: tuple[int, ...] = ()
 
     @property
@@ -137,9 +139,17 @@ class _CompiledTool:
             for binding in self.bindings
             if isinstance(binding.source, AgentChoice)
         }
+        choice_bindings = {
+            binding.argument: binding
+            for binding in self.bindings
+            if isinstance(binding.source, AgentChoice)
+        }
         return self.signature.replace(
             parameters=[
-                parameter
+                parameter.replace(annotation=str, default=inspect.Parameter.empty)
+                if name in choice_bindings
+                and choice_bindings[name].producer_identity is not None
+                else parameter
                 for name, parameter in self.signature.parameters.items()
                 if name in choices
             ]
@@ -1010,6 +1020,7 @@ class _EndpointRun:
 
     request: Mapping[str, Any]
     states: list[_OperationState]
+    choice_sets: dict[tuple[int, str], Any] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     application_failure: bool = False
 
@@ -1739,11 +1750,22 @@ def _compile_tool(
                 name,
                 source,
                 _compile_receiving_validator(signature.parameters[name].annotation)
-                if isinstance(source, (FromRequest, FromResult))
+                if (
+                    isinstance(source, (FromRequest, FromResult))
+                    or (
+                        isinstance(source, AgentChoice)
+                        and source.from_result is not None
+                    )
+                )
                 and signature.parameters[name].annotation is not inspect.Parameter.empty
                 else None,
-                operation_identities.get(source.operation)
+                operation_identities.get(
+                    source.from_result
+                    if isinstance(source, AgentChoice)
+                    else source.operation
+                )
                 if isinstance(source, FromResult)
+                or (isinstance(source, AgentChoice) and source.from_result is not None)
                 else None,
             )
             for name, source in contract.bind.items()
@@ -1754,6 +1776,11 @@ def _compile_tool(
     bounds = tool.bounds
     output_adapter = (
         TypeAdapter(contract.output) if enforce and contract is not None else None
+    )
+    output_projection, output_definitions = (
+        _compile_projection_contract(output_adapter.core_schema)
+        if output_adapter is not None
+        else (None, None)
     )
     return _CompiledTool(
         identity=identity,
@@ -1784,14 +1811,24 @@ def _compile_tool(
             else None
         ),
         enforce_bound_exactly_once=enforce,
+        output_projection=output_projection,
+        output_definitions=output_definitions,
         predecessors=tuple(
             dict.fromkeys(
                 operation_identities[producer]
                 for producer in (
                     *(
-                        source.operation
+                        (
+                            source.from_result
+                            if isinstance(source, AgentChoice)
+                            else source.operation
+                        )
                         for source in contract.bind.values()
                         if isinstance(source, FromResult)
+                        or (
+                            isinstance(source, AgentChoice)
+                            and source.from_result is not None
+                        )
                     ),
                     *contract.after,
                 )

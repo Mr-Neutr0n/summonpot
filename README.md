@@ -431,8 +431,11 @@ subclass, and Python's numeric widening permits `int` or `bool` to feed `float`.
 > defaults. When every required value is application-owned and the operation output exactly
 > matches the endpoint response model, that operation executes without a model.
 > Unreleased source also enforces a sequential chain of required `Exactly(1)` operations
-> connected by `FromResult` or `after`. That chain remains agent-mediated and returns the
-> unique terminal operation's canonical validated result. `FromContext`, broader call
+> connected by `FromResult` or `after`, with producer-backed choices from `list[ConcreteModel]`
+> outputs. Choices use bounded opaque tokens mapped to canonical validated members; empty or
+> oversized sets fail with a fixed redacted 409 before model decision or downstream work.
+> That chain remains agent-mediated and returns the unique terminal operation's canonical
+> validated result. `FromContext`, broader call
 > bounds and graphs, and multi-operation direct paths remain planned. Binding sources must be
 > exact built-in vocabulary types; user-defined subclasses are rejected too. Bare callable
 > dependencies without an explicit `Operation` contract remain compatible. `Operation(fn)`
@@ -443,15 +446,24 @@ subclass, and Python's numeric widening permits `int` or `bool` to feed `float`.
 
 A uniquely ready required operation can feed the next step without asking the model to reconstruct arguments. Declare two or more `Required(..., calls=Exactly(1))` operations; use `FromResult` for validated result fields and `after` for independent success ordering. Every step must have exactly one ready operation, and readiness is checked again before invocation.
 
-The chain accepts `FromRequest`, `FromResult`, and supported immutable defaults—not
-`AgentChoice` or context bindings. Its unique terminal operation must declare the exact
-endpoint response annotation. Summonpot returns that operation's validated result; the
-model cannot invent a receipt. Canonical intermediate results stay outside model context.
+The chain accepts `FromRequest`, `FromResult`, supported immutable defaults, and
+producer-backed `AgentChoice(from_result=producer)` for a producer output of
+`list[ConcreteModel]` only—not context bindings or direct unbounded choices. Candidate
+lists are limited to 128 items and 65,536 JSON characters per binding. Inert projections
+and opaque request-local tokens are exposed, never the canonical results; projection
+respects exclusions and aliases without application serializers. Local token membership
+maps the selection to the exact validated member without Python-equality
+authority. Empty, unavailable, or oversized sets return a fixed redacted 409 before
+decision or downstream work, with no extra model request. Its unique terminal operation
+must declare the exact endpoint response annotation. Summonpot returns that operation's
+validated result; the model cannot invent a receipt. Canonical intermediate results stay
+outside model context.
 
-This slice is agent-mediated, not model-free. Starts remain reserved after failure or
+This slice is agent-mediated, including chains without an agent-owned argument; it is not model-free. Starts remain reserved after failure or
 uncertain timeout; model retries cannot replay effects. Applications own cross-request
 idempotency and transactions. See the runnable [three-step SQLite inventory reservation example](examples/11_linear_result_chain/README.md)
-for a real persisted receipt and independent database checks. These application-owned
+and the [producer-constrained inventory choice example](examples/12_producer_choice/README.md)
+for real persisted receipts and independent database checks. These application-owned
 operations do not imply a framework database adapter. This feature is not in PyPI 0.10.0.
 
 ## How it works today

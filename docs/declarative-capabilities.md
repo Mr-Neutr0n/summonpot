@@ -98,8 +98,17 @@ with exactly one ready operation at each step, without a two-operation ceiling,
 connected by `FromResult` or `after`. Bound result fields are read only after local producer
 validation, and the response is the canonical result of the unique terminal operation whose
 full output annotation exactly matches the endpoint. The chain remains agent-mediated;
-canonical results stay outside model context. `FromContext`, collection-backed choices,
-broader graphs and bounds remain planned and rejected at registration. See
+canonical results stay outside model context. Within a chain, `AgentChoice(from_result=producer)`
+selects from a producer's validated `list[ConcreteModel]`, projecting inert descriptions and
+opaque request-local tokens rather than canonical objects or full result context. The chosen
+token maps to that exact canonical member; Python equality is not authority. Projection
+respects field exclusions and aliases without application serializers. Limits are 128
+candidates and 65,536 JSON characters per binding. Empty, unavailable, or oversized sets
+fail with a fixed redacted 409 before model decision and downstream work, with no extra model
+request. Primitive/untyped collections, direct unbounded chain choices, `FromContext`,
+broader graphs and bounds remain unsupported and rejected at registration. A multi-candidate
+choice remains agent-mediated, not model-free; direct single-operation `AgentChoice` is
+unchanged. See
 [`10_result_chain`](../examples/10_result_chain/README.md) for the persisted inventory example and
 [`08_direct_execution.py`](../examples/08_direct_execution.py) for the
 credential-free direct slice, [`07_bound_operation.py`](../examples/07_bound_operation.py)
@@ -249,8 +258,9 @@ unsupported core schemas are rejected at registration rather than silently strip
 
 Broader explicit operation shapes are rejected before serving until complete graph semantics
 ship. `FromResult` and `after` are supported only in a sequential chain where each step has
-exactly one ready operation. `FromContext`, collection-backed choices, broader bounds, and adding a third
-capability cannot fall through to unenforced model
+exactly one ready operation. Producer-backed `AgentChoice(from_result=...)` is supported
+there only for producer outputs `list[ConcreteModel]`, under the bounded tokenized contract
+described above. `FromContext`, primitive/untyped collections, broader bounds, and unsupported graph shapes cannot fall through to unenforced model
 arguments. Bare callable dependencies retain the legacy agent path. Continue to validate
 inputs and enforce authorization inside every operation; trusted binding does not grant
 authorization or prove that final model claims match operation results.
