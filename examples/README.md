@@ -44,7 +44,7 @@ operation-output validation, and one permitted start. Level 7 runs that shipped 
 When the endpoint uses a Pydantic request model, the operation has at least one
 `FromRequest` binding, uses only `FromRequest` or supported immutable callable defaults,
 and its output exactly matches the endpoint response model, Summonpot executes it directly
-without a model; Level 8 runs that path. Current source also admits a sequential `Required(..., calls=Exactly(1))` chain of two or more operations, with exactly one ready operation at every step, linked by `FromResult` or `after` and using `FromRequest`/`FromResult` and supported immutable defaults only. It has no `AgentChoice`, context, or broader bounds and remains agent-mediated, not model-free. The unique terminal operation output annotation must exactly match the endpoint response annotation; its canonical validated result is returned. `FromResult` implies readiness; optional `after` adds success-ordering. Intermediate canonical results are hidden from the model (completion acknowledgments only). Unsupported graphs fail closed. This implementation is beyond historical v0.10.0 and not yet published.
+without a model; Level 8 runs that path. Current source also admits a sequential `Required(..., calls=Exactly(1))` chain of two or more operations, with exactly one ready operation at every step, linked by `FromResult` or `after` and using `FromRequest`/`FromResult`, supported immutable defaults, and optionally producer-backed `AgentChoice(from_result=...)` from `list[ConcreteModel]`. It has no context or broader bounds and remains agent-mediated, not model-free. The unique terminal operation output annotation must exactly match the endpoint response annotation; its canonical validated result is returned. `FromResult` implies readiness; optional `after` adds success-ordering. Intermediate canonical results are hidden from the model (completion acknowledgments only). Unsupported graphs fail closed. This implementation is beyond historical v0.10.0 and not yet published.
 
 ## Progression
 
@@ -225,6 +225,22 @@ and verifies that the application operation never starts.
 Directory: `10_result_chain/`
 
 Demonstrates a three-step agent-mediated sequential result chain and an application-owned SQLite inventory. The SQLite code is example application code, not a framework database adapter. Started, failed, or uncertain operations are never replayed in the same run; this does not promise rollback or exactly-once external effects. Cross-request retries require application idempotency.
+
+Producer-backed `AgentChoice(from_result=...)` is limited to these sequential chains and
+selects only from a successful producer's locally validated `list[ConcreteModel]`. It uses
+bounded inert projections and opaque request-local tokens, not canonical result values or
+full canonical-result context. Empty, unavailable, or oversized choice sets fail with a
+fixed redacted 409 before model decision or downstream work.
+
+### 12. Producer-constrained inventory choice
+
+Directory: [`12_producer_choice/`](12_producer_choice/)
+
+Shows a producer-backed choice among validated SQLite inventory candidates, followed by a
+write operation that verifies the producer snapshot and returns a persisted receipt. The
+choice is locally token-bound to one canonical producer result. The tests exercise the
+real runtime, HTTP, and SQLite path with a keyless scripted model; the example's production
+run uses the configured provider.
 
 ## What is intentionally not shown as shipped
 

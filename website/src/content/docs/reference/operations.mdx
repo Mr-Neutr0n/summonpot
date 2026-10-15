@@ -47,7 +47,7 @@ This is signature notation rather than a runnable fragment: `callable` and `Resu
 - The first argument is the exact application callable.
 - `bind` maps callable parameter names to explicit sources. Missing, extra, incompatible, or unsupported explicit sources fail during endpoint registration.
 - `output` declares the operation result schema. In the bound runtime it is locally validated before successful completion; a validation error is not retried automatically.
-- The narrow current-source sequential chain is two or more required `Exactly(1)` operations linked A→B by `FromResult` or `after`, with `FromRequest`/`FromResult` and immutable defaults only. It has no `AgentChoice`, context, or broader bounds and remains agent-mediated, not model-free. The unique terminal output annotation must exactly match the endpoint response annotation; the validated canonical terminal result is returned. `FromResult` establishes readiness; optional `after` adds success-ordering. Intermediate canonical results are hidden from the model; only completion acknowledgments are visible. Unsupported graphs fail closed. This source is beyond historical v0.10.0 and is not yet published.
+- The narrow current-source sequential chain is two or more required `Exactly(1)` operations linked A→B by `FromResult` or `after`, using `FromRequest`/`FromResult`, immutable defaults, and optionally producer-backed `AgentChoice(from_result=...)` from `list[ConcreteModel]`. It has no context or broader bounds and remains agent-mediated, not model-free. The unique terminal output annotation must exactly match the endpoint response annotation; the validated canonical terminal result is returned. `FromResult` establishes readiness; optional `after` adds success-ordering. Canonical result objects stay hidden; tool results are completion acknowledgments, while choice arguments disclose bounded inert candidate evidence. Unsupported graphs fail closed. This source is beyond historical v0.10.0 and is not yet published.
 - An `Operation` object is immutable at the declaration boundary: binding mappings are snapshotted and `after` is tuple-normalized.
 
 ### Binding sources
@@ -63,7 +63,7 @@ This is signature notation rather than a runnable fragment: `callable` and `Resu
 
 ### Explicit shapes accepted today
 
-The released runtime-enforced explicit slice is the single-operation contract. Unreleased source adds sequential result chains with exactly one ready operation at each step. The chain requires two or more required `Exactly(1)` operations, A→B `FromResult` or independent `after` ordering, and only `FromRequest`/`FromResult` plus immutable defaults. It has no `AgentChoice`, context, or broader bounds; it is agent-mediated, not model-free. Its unique terminal output annotation must exactly match the endpoint response annotation, and its validated canonical result is returned. `FromResult` establishes readiness; optional `after` adds success-ordering. Intermediate canonical results remain hidden from the model (completion acknowledgments only). Unsupported graphs fail registration.
+The released runtime-enforced explicit slice is the single-operation contract. Unreleased source adds sequential result chains with exactly one ready operation at each step. The chain requires two or more required `Exactly(1)` operations, A→B `FromResult` or independent `after` ordering, and `FromRequest`/`FromResult`, supported immutable defaults, or producer-backed `AgentChoice(from_result=...)` from `list[ConcreteModel]`. Context and broader bounds are unsupported; the chain is agent-mediated, not model-free. Its unique terminal output annotation must exactly match the endpoint response annotation, and its validated canonical result is returned. `FromResult` establishes readiness; optional `after` adds success-ordering. Canonical result objects remain hidden; choice arguments disclose bounded inert candidate evidence separately from completion acknowledgments. Unsupported graphs fail registration.
 
 Immutable defaults are exact built-in `None`, `bool`, `int`, `float`, `complex`, `str`, `bytes`; tuples/frozensets recursively containing only these values are also supported. Mutable defaults, custom types/subclasses, and scalar request declarations do not qualify for direct execution.
 
@@ -86,6 +86,19 @@ Operation output validation occurs before the call counts as successful for `Req
 
 Capabilities are real application callables, not simulations. Keep the declared set minimal, validate identity/authorization inside every operation, avoid raw database connections/sessions, shells, arbitrary SQL, and broad service objects, and add application-side idempotency/transaction safeguards where side effects need them. `SUMMONPOT_MODEL=test` is keyless but can invoke capabilities with placeholder arguments: it is not a dry-run sandbox. See [Architecture & safety](/architecture/) and [the agent-backed build guide](/build/agent-choice/).
 
+## Producer-backed choices in sequential chains
+
+Unreleased source supports `AgentChoice(from_result=producer)` only in the uniquely ready
+sequential chain, with a declared producer output of `list[ConcreteModel]`. Candidate
+projection is inert and bounded (128 items and 65,536 JSON characters per binding), respects
+field exclusions and aliases, and invokes no application serializers; the
+model receives opaque request-local tokens, not canonical objects or full canonical-result
+context. Local token membership maps the selected token to the exact canonical validated
+member—Python equality is not authority. Empty, unavailable, or oversized sets produce a
+fixed redacted 409 before model decision and before downstream work, with no extra model
+request. This remains agent-mediated; two or more candidates are not model-free. Direct
+single-operation `AgentChoice` remains unchanged.
+
 ## Planned vocabulary
 
-`FromContext`, collection-backed choices, broader call bounds in operation graphs, broader graph shapes, and a multi-operation deterministic compiler remain unsupported. `FromResult` and `after` work only in the uniquely ordered sequential chain described above; no general dependency graph or model-free multi-operation execution is supported. Started, failed, or uncertain operations are not replayed in the same run, but this is not rollback or exactly-once external-effect protection; cross-request retries require application idempotency.
+`FromContext`, primitive or untyped collection choices, direct unbounded choices inside chains, broader call bounds in operation graphs, broader graph shapes, and a multi-operation deterministic compiler remain unsupported. `FromResult`, `after`, and producer-backed model choices work only in the uniquely ordered sequential chain described above; no general dependency graph or model-free multi-operation execution is supported. Started, failed, or uncertain operations are not replayed in the same run, but this is not rollback or exactly-once external effects.

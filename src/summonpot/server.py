@@ -284,6 +284,7 @@ async def _run_endpoint(summon: Any, endpoint: Any, params: dict[str, Any]) -> A
 
     from summonpot.runtime import (
         _ApplicationOperationTimeout,
+        _ChoiceUnavailableError,
         _http_error_boundary,
         _OperationExecutionError,
         _OperationInputError,
@@ -293,6 +294,12 @@ async def _run_endpoint(summon: Any, endpoint: Any, params: dict[str, Any]) -> A
     token = _http_error_boundary.set(True)
     try:
         return await summon._runtime.call(endpoint, params)
+    except _ChoiceUnavailableError:
+        logger.warning("Endpoint %s has no supported candidate domain", endpoint.path)
+        raise HTTPException(
+            status_code=409,
+            detail="No supported candidate domain is available for the declared choice.",
+        ) from None
     except _OperationInputError:
         logger.warning(
             "Endpoint %s rejected an injected value at its receiving operation contract",

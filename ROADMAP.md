@@ -163,12 +163,16 @@ deterministic execution, or claim context budgeting.
 Current source adds agent-mediated sequential chains of two or more required `Exactly(1)` operations, provided exactly one operation is ready at every step.
 `FromResult` injects fields from a predecessor's locally validated Pydantic result;
 `after` independently requires successful predecessor completion. Declaration order does
-not choose execution order. All operations use `FromRequest`, `FromResult`, or supported immutable callable defaults. Chains containing `AgentChoice`, `FromContext`, broader bounds, disconnected nodes, cycles, or any step with multiple ready operations remain unsupported.
+not choose execution order. Operations use `FromRequest`, `FromResult`, supported immutable
+callable defaults, and producer-backed `AgentChoice(from_result=...)` only when the producer
+declares `list[ConcreteModel]`. Chains with `FromContext`, broader bounds, disconnected
+nodes, cycles, or any step with multiple ready operations remain unsupported. Choice
+projection and local token authority are described in milestone 3 below.
 
 Exactly one operation must declare the endpoint's exact full response annotation, and it
 must be the terminal operation. The endpoint returns that canonical validated result,
-not model-authored success claims. Models see completion acknowledgments, not canonical
-intermediate results. They still orchestrate this slice; no-model multi-operation execution
+not model-authored success claims. Models see completion acknowledgments and bounded inert evidence for declared
+choices, not canonical intermediate result objects. They still orchestrate this slice; no-model multi-operation execution
 remains planned.
 
 Call maxima count starts; required minima count validated successes. Failed, cancelled,
@@ -263,15 +267,22 @@ idempotency, transaction, or read-only semantics make concurrency safe.
 
 ### 3. Producer-constrained agent choices
 
-Constrain `AgentChoice(from_result=...)` to the exact validated collection produced during
-the same request:
+Completed in unreleased source for sequential chains; this does not enable general graphs
+or model-free multi-operation execution. `AgentChoice(from_result=producer)` is limited to
+a producer's locally validated `list[ConcreteModel]` and remains agent-mediated. The
+runtime:
 
-- Expose only choices from a successful declared producer.
-- Use stable internal membership tokens rather than trusting reconstructed model values or
-  Python equality.
-- Enforce membership locally; generated tool schemas provide guidance, not authority.
-- Reject empty or unavailable choice sets deterministically instead of spending model
-  retries on an impossible path.
+- exposes at most 128 candidate items and 65,536 JSON characters per binding, using inert
+  projected descriptions and opaque request-local tokens, not canonical result objects;
+  projection respects exclusions and aliases without application serializers;
+- maps the selected token to the exact canonical validated member and checks membership
+  locally, without Python equality as authority;
+- rejects empty, unavailable, or oversized sets with a fixed redacted 409 before model
+  decision and before downstream work; no extra model request is made.
+
+Primitive/untyped collections, direct unbounded choices inside chains, context, broader
+bounds, and general graphs remain unsupported. A two-or-more candidate choice still needs
+the agent runtime; `AgentChoice` in the original single-operation form is unchanged.
 
 ### 4. Authenticated application context
 

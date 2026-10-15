@@ -400,9 +400,19 @@ def _chain_contract_tool_indices(tools: Sequence[Any]) -> tuple[int, ...] | None
             return None
         if not all(
             type(source) in (FromRequest, FromResult)
+            or (type(source) is AgentChoice and source.from_result is not None)
             for source in contract.bind.values()
         ):
             return None
+        for source in contract.bind.values():
+            if type(source) is AgentChoice:
+                if source.from_result is None:
+                    return None
+                item = _producer_choice_type(source.from_result.output)
+                if item is None or (
+                    source.item_type is not None and source.item_type is not item
+                ):
+                    return None
         signature = inspect.signature(contract.operation)
         for name, parameter in signature.parameters.items():
             if (
@@ -420,9 +430,10 @@ def _chain_contract_tool_indices(tools: Sequence[Any]) -> tuple[int, ...] | None
     successors: list[set[int]] = [set() for _ in tools]
     for index, contract in enumerate(contracts):
         references = [
-            source.operation
+            (source.from_result if type(source) is AgentChoice else source.operation)
             for source in contract.bind.values()
             if type(source) is FromResult
+            or (type(source) is AgentChoice and source.from_result is not None)
         ]
         references.extend(contract.after)
         for reference in references:
@@ -447,6 +458,18 @@ def _chain_contract_tool_indices(tools: Sequence[Any]) -> tuple[int, ...] | None
         for successor in successors[current]:
             predecessors[successor].discard(current)
     return tuple(order)
+
+
+def _producer_choice_type(output: Any) -> Any | None:
+    """Return the concrete model item type from a supported candidate list."""
+    output = _unwrap(output)
+    if get_origin(output) is not list:
+        return None
+    args = get_args(output)
+    if len(args) != 1 or _is_unknown(args[0]):
+        return None
+    item = _unwrap(args[0])
+    return item if isinstance(item, type) and issubclass(item, BaseModel) else None
 
 
 def _immutable_chain_default(value: Any) -> bool:
@@ -671,7 +694,6 @@ def _validate_bindings(
             )
         if isinstance(source, AgentChoice):
             # Whatever the model picks still has to fit the argument receiving it.
-            # Checked for every choice, including one with no producer behind it.
             _require_compatible(
                 endpoint=endpoint,
                 operation=operation,

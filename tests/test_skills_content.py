@@ -128,10 +128,26 @@ def test_skill_documents_sequential_chain_authority_and_unreleased_boundary():
     assert "unique terminal operation's full output annotation" in body
     assert "canonical validated terminal result, not model-authored claims" in body
     assert "agent-mediated, not model-free" in body
-    assert "only completion acknowledgments are visible" in body
+    assert "Tool results are completion acknowledgments" in body
+    assert "separately disclose bounded inert candidate evidence" in body
     assert "call maxima count starts" in body
     assert "uncertain starts retain their reservations" in body
     assert "Direct `AgentChoice` remains supported" in body
+
+
+def test_skill_documents_producer_backed_choices_and_limits():
+    body = " ".join(skill_body().split())
+
+    assert "`AgentChoice(from_result=producer)`" in body
+    assert "`output=list[ConcreteModel]`" in body
+    assert "128 candidates" in body
+    assert "65,536 JSON characters per binding" in body
+    assert "opaque request-local tokens" in body
+    assert "Python equality is not authority" in body
+    assert "fixed redacted 409" in body
+    assert "before model decision and before downstream work" in body
+    assert "there is no extra model request" in body
+    assert "not a model-free execution path" in body
 
 
 def test_skill_uses_the_current_ai_api_positioning_and_direct_runtime_boundary():

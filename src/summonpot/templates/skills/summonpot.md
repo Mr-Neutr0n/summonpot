@@ -168,15 +168,25 @@ The argument sources mean:
 | framework-owned context | `FromContext("key")` |
 | direct or collection-backed model selection | `AgentChoice(...)` |
 
-`FromResult` and `after` are enforced in an unreleased sequential chain of two or more operations, provided exactly one operation is ready at each step.
+`FromResult` and `after` are enforced in an unreleased sequential chain of two or more operations, provided exactly one operation is ready at each step. Such a chain may also use `AgentChoice(from_result=producer)` to choose from a producer's locally validated list of concrete Pydantic models.
 `FromResult` itself establishes producer readiness; `after` independently requires
-successful predecessor completion. The chain has no `AgentChoice` or context bindings
-and is agent-mediated, not model-free. Its unique terminal operation's full output
+successful predecessor completion. The chain remains agent-mediated, not model-free.
+Its unique terminal operation's full output
 annotation must exactly equal the endpoint response annotation. Summonpot returns the
 canonical validated terminal result, not model-authored claims. Intermediate canonical
-results stay hidden from the model; only completion acknowledgments are visible.
-`FromContext` and collection-backed `AgentChoice` remain declaration vocabulary whose
-execution is not yet supported. Unsupported graphs fail closed.
+results stay hidden from the model. Tool results are completion acknowledgments;
+producer-backed choice arguments separately disclose bounded inert candidate evidence.
+Collection-backed choices are supported only in these sequential chains, require a
+declared producer with `output=list[ConcreteModel]`, and accept at most 128 candidates
+and 65,536 JSON characters per binding. The model receives opaque request-local tokens
+and inert projected candidate descriptions, not canonical result objects or full
+canonical result context. The selected token is mapped locally to that exact canonical
+validated member; Python equality is not authority. Projection respects field exclusions
+and aliases without application serializers. Empty, unavailable, or oversized
+sets fail with a fixed redacted 409 before model decision and before downstream work;
+there is no extra model request. `FromContext` remains unsupported. Unsupported graphs
+fail closed. A two-or-more candidate choice still uses the agent runtime; it is not a
+model-free execution path.
 
 Binding sources must be exact built-in source types; subclasses are rejected. Once
 `bind=` is present, bind every argument that has no default. Registration rejects
@@ -213,7 +223,7 @@ without resolving or constructing a model. There is no model fallback after dire
 execution begins. Multi-operation chains are admitted only as a supported sequential chain: two or more required `Exactly(1)` operations connected by `FromResult` or `after`, using
 `FromRequest`/`FromResult` and supported immutable callable defaults. The chain stays
 agent-mediated and returns the unique terminal operation's canonical validated result.
-`FromContext`, producer-backed choices, broader bounds and unsupported graphs are
+`FromContext`, unsupported choice containers, broader bounds and unsupported graphs are
 rejected during registration. Direct `AgentChoice` remains supported in the existing
 single-operation form. Bare `Depends(fn)` and `Required(fn)` calls keep their implicit
 legacy bounds; explicit unsupported call bounds are not admitted.
