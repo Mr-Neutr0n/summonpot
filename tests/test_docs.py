@@ -231,3 +231,21 @@ def test_readme_states_current_python_support_without_release_candidate_language
     assert "This source revision" not in readme
     assert "newly built artifacts" not in readme
     assert "already-published packages" not in readme
+
+
+def test_quick_start_uses_installed_console_and_downloaded_example() -> None:
+    text = (ROOT / "website/src/content/docs/quick-start.mdx").read_text()
+    assert "python -m summonpot" not in text
+    assert "summonpot serve 08_direct_execution.py --host 127.0.0.1 --port 8000" in text
+    assert (
+        "https://raw.githubusercontent.com/tugrulguner/summonpot/v0.10.0/examples/08_direct_execution.py"
+        in text
+    )
+    assert "python -m venv .venv" in text
+    assert ". .venv/bin/activate" in text
+    assert 'python -m pip install "summonpot[serve,cli]"' in text
+    section = text.split("## Run the actual keyless HTTP example", 1)[1].split(
+        "## Declare", 1
+    )[0]
+    assert "In another terminal" in section
+    assert "\\\\\n" not in section

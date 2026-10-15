@@ -6,8 +6,12 @@ description: Install Summonpot and serve your first typed endpoint.
 ## Install
 
 ```bash
-pip install "summonpot[serve,cli]"
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install "summonpot[serve,cli]"
 ```
+
+On Windows, activate the environment with `.venv\Scripts\activate`.
 
 Summonpot supports Python 3.11–3.14. To wire an endpoint without a provider account, select the built-in test model:
 
@@ -27,10 +31,18 @@ The [browser-local contract playground](/playground/) previews request-owned cus
 
 The repository's [direct quote example](https://github.com/tugrulguner/summonpot/blob/main/examples/08_direct_execution.py) is the recommended no-credentials demo. It accepts one validated request and invokes exactly one declared operation using only request-bound values. It does not use the test model or any AI provider. The response is application-calculated—not an AI-generated quote.
 
+Download the example from the published 0.10.0 release into your current directory, then start it with the installed console command in the activated environment:
+
 ```bash
-uv run python -m summonpot serve examples/08_direct_execution.py --host 127.0.0.1 --port 8000
-curl -sS -X POST http://127.0.0.1:8000/quotes/direct \\
-  -H 'Content-Type: application/json' \\
+curl -fL https://raw.githubusercontent.com/tugrulguner/summonpot/v0.10.0/examples/08_direct_execution.py -o 08_direct_execution.py
+summonpot serve 08_direct_execution.py --host 127.0.0.1 --port 8000
+```
+
+In another terminal, send a request while the server is running:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/quotes/direct \
+  -H 'Content-Type: application/json' \
   -d '{"unit_price_cents":1299,"quantity":3,"tax_rate_percent":"8.25"}'
 ```
 
