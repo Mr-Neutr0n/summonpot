@@ -381,80 +381,72 @@ def _enforced_contract_tool_index(tools: Sequence[Any]) -> int | None:
     return 0
 
 
-def _chain_contract_tool_indices(tools: Sequence[Any]) -> tuple[int, int] | None:
-    """Identify the narrow two-node required Exactly(1) result chain."""
-    if len(tools) != 2:
+def _chain_contract_tool_indices(tools: Sequence[Any]) -> tuple[int, ...] | None:
+    """Identify a totally ordered required Exactly(1) chain, in execution order."""
+    if len(tools) < 2:
         return None
-    first, second = tools
-    a, b = first.contract, second.contract
-    if not (
-        first.required
-        and second.required
-        and a
-        and b
-        and a.bind is not None
-        and b.bind is not None
-        and a.output is not None
-        and b.output is not None
-    ):
-        return None
-    if any(
-        t.bounds is None or t.bounds.minimum != 1 or t.bounds.maximum != 1
-        for t in tools
-    ):
-        return None
-    # Build the bounded two-node graph independent of endpoint parameter order.
-    # FromResult always establishes producer -> consumer; after adds an ordering edge.
-    edges = [
-        (source.operation, tool.contract)
-        for tool in tools
-        for source in tool.contract.bind.values()
-        if isinstance(source, FromResult)
-    ]
-    edges.extend(
-        (producer, tool.contract) for tool in tools for producer in tool.contract.after
-    )
-    if not edges:
-        return None
-    if any(source not in (a, b) or target not in (a, b) for source, target in edges):
-        return None
-    if any(source is target for source, target in edges):
-        return None
-    directions = {
-        (0 if source is a else 1, 0 if target is a else 1) for source, target in edges
-    }
-    if len(directions) != 1:
-        return None
-    first_index, second_index = next(iter(directions))
-    first, second = tools[first_index], tools[second_index]
-    a, b = first.contract, second.contract
-    # Every required explicit argument is sourced deterministically; defaults may
-    # remain omitted and are handled by the callable signature.
-    if not all(
-        isinstance(s, (FromRequest, FromResult))
-        for t in tools
-        for s in t.contract.bind.values()
-    ):
-        return None
-    if any(isinstance(s, FromResult) for s in a.bind.values()):
-        return None
+    contracts = []
     for tool in tools:
-        signature = inspect.signature(tool.contract.operation)
+        contract = tool.contract
+        if (
+            not tool.required
+            or contract is None
+            or contract.bind is None
+            or contract.output is None
+            or tool.bounds is None
+            or tool.bounds.minimum != 1
+            or tool.bounds.maximum != 1
+        ):
+            return None
+        if not all(
+            type(source) in (FromRequest, FromResult)
+            for source in contract.bind.values()
+        ):
+            return None
+        signature = inspect.signature(contract.operation)
         for name, parameter in signature.parameters.items():
             if (
-                name not in tool.contract.bind
+                name not in contract.bind
                 and parameter.default is not inspect.Parameter.empty
                 and not _immutable_chain_default(parameter.default)
             ):
                 return None
-    # A must actually be connected to B, and B is the unique terminal.
-    if any(isinstance(s, FromResult) and s.operation is not a for s in b.bind.values()):
+        contracts.append(contract)
+
+    identities = {id(contract): index for index, contract in enumerate(contracts)}
+    if len(identities) != len(contracts):
         return None
-    if any(pred is not a for pred in b.after):
-        return None
-    if a.after:
-        return None
-    return (first_index, second_index)
+    predecessors: list[set[int]] = [set() for _ in tools]
+    successors: list[set[int]] = [set() for _ in tools]
+    for index, contract in enumerate(contracts):
+        references = [
+            source.operation
+            for source in contract.bind.values()
+            if type(source) is FromResult
+        ]
+        references.extend(contract.after)
+        for reference in references:
+            producer = identities.get(id(reference))
+            if producer is None or producer == index:
+                return None
+            predecessors[index].add(producer)
+            successors[producer].add(index)
+
+    # Require a unique next vertex at every step. Multiple ready vertices would
+    # grant unresolved ordering choices; cycles and disconnected vertices fail
+    # closed. Redundant edges from earlier producers remain valid.
+    remaining = set(range(len(tools)))
+    order: list[int] = []
+    while remaining:
+        ready = [index for index in sorted(remaining) if not predecessors[index]]
+        if len(ready) != 1:
+            return None
+        current = ready[0]
+        remaining.remove(current)
+        order.append(current)
+        for successor in successors[current]:
+            predecessors[successor].discard(current)
+    return tuple(order)
 
 
 def _immutable_chain_default(value: Any) -> bool:
@@ -496,14 +488,14 @@ def _validate_runtime_admission(*, endpoint: str, tools: list[Any]) -> None:
                 f"Endpoint {endpoint!r}: capability {tool.name!r}: Summonpot "
                 "cannot enforce the declared call bound. The current bound runtime "
                 "supports required typed operations with calls=Exactly(1) in the "
-                "single-operation or supported sequential two-operation shape."
+                "single-operation or supported uniquely ordered sequential shape."
             )
         if explicit_contract and index != enforced and not (chain and index in chain):
             raise TypeError(
                 f"Endpoint {endpoint!r}: capability {tool.name!r} would leave its "
                 "explicit contract unenforced on the agent runtime. The current "
                 "runtime supports one required typed operation with calls=Exactly(1), "
-                "no ordering, and FromRequest or direct AgentChoice sources; or two "
+                "no ordering, and FromRequest or direct AgentChoice sources; or multiple "
                 "required Exactly(1) operations in a supported sequential chain with "
                 "FromRequest/FromResult bindings and a unique terminal response producer."
             )
@@ -511,7 +503,7 @@ def _validate_runtime_admission(*, endpoint: str, tools: list[Any]) -> None:
             raise TypeError(
                 f"Endpoint {endpoint!r}: capability {tool.name!r}: Summonpot "
                 "cannot enforce the declared call bound. Add a complete typed Operation "
-                "contract supported by the single-operation Exactly(1) runtime, or "
+                "contract supported by the single-operation or sequential Exactly(1) runtime, or "
                 "remove the explicit call bound."
             )
 

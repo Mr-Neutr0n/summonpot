@@ -123,7 +123,8 @@ def test_skill_states_the_current_binding_execution_boundary():
 
 def test_skill_documents_sequential_chain_authority_and_unreleased_boundary():
     body = " ".join(skill_body().split())
-    assert "unreleased sequential two-operation slice" in body
+    assert "sequential chain of two or more operations" in body
+    assert "exactly one operation is ready at each step" in body
     assert "unique terminal operation's full output annotation" in body
     assert "canonical validated terminal result, not model-authored claims" in body
     assert "agent-mediated, not model-free" in body
