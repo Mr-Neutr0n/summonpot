@@ -1,11 +1,10 @@
 ---
 import LanguageSelect from '@astrojs/starlight/components/LanguageSelect.astro';
 import Search from '@astrojs/starlight/components/Search.astro';
-import SiteTitle from '@astrojs/starlight/components/SiteTitle.astro';
 import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
 ---
 <div class="header">
-  <div class="title-wrapper sl-flex"><SiteTitle /></div>
+  <div class="title-wrapper sl-flex"><a class="summonpot-wordmark" href="/" aria-label="Summonpot homepage"><span>summon</span><span class="wordmark-pot">pot</span></a></div>
   <div class="sl-flex print:hidden header-tools">
     <Search />
   </div>
@@ -65,7 +64,11 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
 </script>
 <style>
   @layer starlight.core {
-    .header { display:flex; gap:var(--sl-nav-gap); justify-content:space-between; align-items:center; height:100%; }
+    :global(.summonpot-wordmark) { display:inline-flex; min-height:44px; align-items:center; color:#F4F2EA; font-weight:700; font-size:1.15rem; text-decoration:none; }
+  :global(.summonpot-wordmark .wordmark-pot) { color:#A987FF; }
+  :global([data-theme='light'] .summonpot-wordmark) { color:#25232D; }
+  :global([data-theme='light'] .summonpot-wordmark .wordmark-pot) { color:#6542C4; }
+  .header { display:flex; gap:var(--sl-nav-gap); justify-content:space-between; align-items:center; height:100%; }
     .title-wrapper { overflow:clip; padding:.25rem; margin:-.25rem; min-width:0; }
     .right-group,.family-links,.header-tools { display:flex; align-items:center; }
     .right-group { gap:1rem; }
