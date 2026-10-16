@@ -8,7 +8,7 @@ def test_readme_family_presentation():
     readme = (Path(__file__).resolve().parents[1] / "README.md").read_text()
     hero = re.search(r"<img\b[^>]+>", readme)
     assert hero is not None
-    assert 'src="summonpot-lockup.png"' in hero.group()
+    assert 'src="summonpot-lockup.png?v=wordmark-3"' in hero.group()
     assert 'width="600"' in hero.group()
     after_hero = readme[readme.index("</p>", hero.end()) + 4 :]
     resource_row = re.search(r'<p align="center">(.*?)</p>', after_hero, re.DOTALL)

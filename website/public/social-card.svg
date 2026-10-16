@@ -9,7 +9,7 @@
       <path d="M64 79l10 10-10 10-10-10z" fill="#A987FF"/>
   </g>
   <text x="478" y="190" fill="#A987FF" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="4">MODEPOT / OPEN SOURCE</text>
-  <text x="472" y="330" fill="#F4F2EA" font-family="Arial, Helvetica, sans-serif" font-size="80" font-weight="700" letter-spacing="-4">summonpot</text>
+  <text x="472" y="330" fill="#F4F2EA" font-family="Arial, Helvetica, sans-serif" font-size="80" font-weight="700" letter-spacing="-4">summon<tspan fill="#F2B84B">pot</tspan></text>
   <text x="478" y="402" fill="#C4CAD3" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="400">Deterministic operations.</text>
   <text x="478" y="443" fill="#C4CAD3" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="400">Bounded agent-owned decisions.</text>
   <line x1="478" y1="492" x2="1100" y2="492" stroke="#A987FF" stroke-width="4"/>

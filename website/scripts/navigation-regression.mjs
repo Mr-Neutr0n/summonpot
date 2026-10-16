@@ -68,7 +68,7 @@ try {
       check(unpinned.length === 0, `${route}: relative source links were not rewritten to repository URLs (${unpinned.join(", ")})`);
       if (filename === "README.md") {
         const image = page.locator('main img[src*="summonpot-lockup.png"]');
-        check(await image.count() === 1 && new RegExp(`/raw/[0-9a-f]{40}/summonpot-lockup\\.png$`).test(await image.getAttribute("src") ?? ""), `${route}: relative README illustration is missing or not commit-pinned`);
+        check(await image.count() === 1 && new RegExp(`/raw/[0-9a-f]{40}/summonpot-lockup\\.png\\?v=wordmark-3$`).test(await image.getAttribute("src") ?? ""), `${route}: relative README illustration is missing or not commit-pinned`);
       }
       if (filename === "ROADMAP.md") check(await page.locator("main").innerText().then(text => text.includes("planned work")), `${route}: roadmap planned-work disclaimer is missing`);
     }
