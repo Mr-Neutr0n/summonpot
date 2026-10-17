@@ -31,7 +31,7 @@ try {
     const channels=c=>c.match(/[\d.]+/g).slice(0,3).map(Number);
     const luminance=c=>{const [r,g,b]=channels(c).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return .2126*r+.7152*g+.0722*b};
     const background=n=>{while(n){const c=getComputedStyle(n).backgroundColor;if(!/rgba\([^)]*,\s*0(?:\.0+)?\)$/.test(c)&&c!=='transparent')return c;n=n.parentElement}throw new Error('No opaque background')};
-    const elements=[...document.querySelectorAll('header .site-title, header starlight-theme-select select, header starlight-theme-select label, header button[data-open-modal], main p, main h1, main h2, main h3, main li, main a, .sidebar a, .expressive-code .code span[style]')];
+    const elements=[...document.querySelectorAll('header .summonpot-wordmark, header starlight-theme-select select, header starlight-theme-select label, header button[data-open-modal], main p, main h1, main h2, main h3, main li, main a, .sidebar a, .expressive-code .code span[style]')];
     const colors=elements.filter(n=>n.getClientRects().length&&n.textContent.trim()).map(n=>{
       const s=getComputedStyle(n);const bg=background(n);const a=luminance(s.color),b=luminance(bg);
       return {selector:n.tagName,text:n.textContent.trim().slice(0,55),fg:s.color,bg,ratio:(Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
@@ -82,8 +82,8 @@ try {
   await page.goto(base + route, { waitUntil: 'networkidle' });
   await page.locator('starlight-theme-select select').first().selectOption(theme);
   await page.evaluate(async () => { await document.fonts.ready; await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); });
-  const identity = await page.locator('header .site-title').evaluate(n => ({ width: n.getBoundingClientRect().width, client: n.clientWidth, content: n.scrollWidth, text: n.textContent.trim() }));
-  check(identity.width >= 90 && identity.content <= identity.client + 1 && identity.text === 'Summonpot', `${route} ${theme} ${width}: narrow header clips product identity (${JSON.stringify(identity)})`);
+  const identity = await page.locator('header .summonpot-wordmark').evaluate(n => ({ width: n.getBoundingClientRect().width, client: n.clientWidth, content: n.scrollWidth, text: n.textContent.trim() }));
+  check(identity.width >= 90 && identity.content <= identity.client + 1 && identity.text === 'summonpot', `${route} ${theme} ${width}: narrow header clips product identity (${JSON.stringify(identity)})`);
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.body.scrollWidth <= innerWidth), `${route} ${theme} ${width}: narrow header causes overflow`);
   const covered = await page.evaluate(() => [...document.querySelectorAll('header .family-return, header button[data-open-modal], header starlight-theme-select select')].filter(n => { const r = n.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !r.width || !r.height || !hit || !n.contains(hit); }).map(n => n.tagName + ':' + (n.textContent?.trim() || n.getAttribute('aria-label'))));
   check(covered.length === 0, `${route} ${theme} ${width}: narrow header controls are covered (${covered.join(', ')})`);

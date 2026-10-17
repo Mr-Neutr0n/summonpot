@@ -18,7 +18,7 @@ def test_readme_preserves_signature_hero_and_unified_framework_value():
     normalized_introduction = _normalize(introduction)
 
     assert (
-        '<img src="summonpot-lockup.png?v=wordmark-3" alt="Summonpot" width="600">'
+        '<img src="summonpot-lockup.png?v=wordmark-accent-1" alt="Summonpot" width="600">'
         in introduction
     )
     assert (

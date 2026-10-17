@@ -12,7 +12,8 @@ try {
  for(const [source,targets,width,height]of jobs){
   await page.setViewportSize({width,height});
   const svg=await readFile(resolve(root,source),'utf8');
-  assert.match(svg, /<text[^>]*fill="#F4F2EA"[^>]*>summon<tspan fill="#F2B84B">pot<\/tspan><\/text>/);
+  assert.match(svg, /<text[^>]*fill="#F4F2EA"[^>]*>summon<tspan fill="#A987FF">pot<\/tspan><\/text>/);
+  assert.match(svg, /<path[^>]*stroke="#A987FF"/);
   if(!check){
    await page.setContent('<style>html,body{margin:0;padding:0}</style>'+svg);
    await page.evaluate(()=>document.fonts.ready);
@@ -27,8 +28,8 @@ try {
   for(const target of targets){
    const bytes=await readFile(resolve(root,target));
    const data='data:image/'+(target.endsWith('.webp')?'webp':'png')+';base64,'+bytes.toString('base64');
-   const counts=await page.evaluate(async data=>{const im=new Image();im.src=data;await im.decode();const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;const ctx=c.getContext('2d');ctx.drawImage(im,0,0);const{data:rgba}=ctx.getImageData(0,0,c.width,c.height);const social=c.height===630,left=social?470:510,top=social?235:330,bottom=social?360:470;let white=0,gold=0;for(let y=top;y<bottom;y++)for(let x=left;x<1120;x++){const k=(y*c.width+x)*4;if(x<left+100&&Math.abs(rgba[k]-244)<14&&Math.abs(rgba[k+1]-242)<14&&Math.abs(rgba[k+2]-234)<14)white++;if(x>left+200&&Math.abs(rgba[k]-242)<14&&Math.abs(rgba[k+1]-184)<14&&Math.abs(rgba[k+2]-75)<14)gold++;}return{width:c.width,height:c.height,white,gold}},data);
-   assert.equal(counts.width,width);assert.equal(counts.height,height);assert.ok(counts.white>100,target+': off-white prefix required');assert.ok(counts.gold>100,target+': amber pot pixels required within wordmark bounds');console.log(target,JSON.stringify(counts));
+   const counts=await page.evaluate(async data=>{const im=new Image();im.src=data;await im.decode();const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;const ctx=c.getContext('2d');ctx.drawImage(im,0,0);const{data:rgba}=ctx.getImageData(0,0,c.width,c.height);const social=c.height===630,left=social?470:510,top=social?235:330,bottom=social?360:470;let white=0,violet=0;for(let y=top;y<bottom;y++)for(let x=left;x<1120;x++){const k=(y*c.width+x)*4;if(x<left+100&&Math.abs(rgba[k]-244)<14&&Math.abs(rgba[k+1]-242)<14&&Math.abs(rgba[k+2]-234)<14)white++;if(x>left+200&&Math.abs(rgba[k]-169)<14&&Math.abs(rgba[k+1]-135)<14&&Math.abs(rgba[k+2]-255)<14)violet++;}return{width:c.width,height:c.height,white,violet}},data);
+   assert.equal(counts.width,width);assert.equal(counts.height,height);assert.ok(counts.white>100,target+': off-white prefix required');assert.ok(counts.violet>100,target+': violet pot pixels required within wordmark bounds');console.log(target,JSON.stringify(counts));
   }
  }
 }finally{await browser.close()}
