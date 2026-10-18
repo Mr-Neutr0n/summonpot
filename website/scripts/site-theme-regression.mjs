@@ -77,7 +77,7 @@ try {
    await page.close();
   }
  }
- for (const route of ['/', '/quick-start/', '/guides/operations/', '/build/agent-choice/']) for (const theme of ['light', 'dark']) for (const width of [320,390,400,401]) {
+ for (const route of ['/', '/quick-start/', '/guides/operations/', '/build/agent-choice/']) for (const theme of ['light', 'dark']) for (const width of [320,390,400,401,768,1050]) {
   const page = await browser.newPage({ viewport: { width, height: 768 }, colorScheme: theme === 'light' ? 'dark' : 'light', reducedMotion: 'reduce' });
   await page.goto(base + route, { waitUntil: 'networkidle' });
   await page.locator('starlight-theme-select select').first().selectOption(theme);

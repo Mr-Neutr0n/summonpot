@@ -99,8 +99,8 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
       :global(:root:not([data-has-toc])) { --__toc-width:0rem; }
       .header { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-content:center; }
     }
-    @media (max-width:49.999rem) {
-      .header { gap:0; }
+    @media (max-width:69.999rem) {
+      .header { display:flex; gap:0; }
       .title-wrapper { flex:0 1 104px; }
       .header-tools { flex:0 0 auto; margin:0; justify-content:flex-end; gap:.375rem; }
       .right-group { display:flex !important; flex:0 0 auto; margin:0; justify-content:flex-end; gap:0; }
