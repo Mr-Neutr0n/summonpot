@@ -15,12 +15,7 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
       <a href="https://discord.gg/u3AANZr6RG">Community</a>
       <a href="https://tugrul.modepot.io/">About Tugrul</a>
     </nav>
-    <nav class="family-socials" aria-label="Social and feedback">
-      <a href="https://www.linkedin.com/in/tugrulguner/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn (opens new tab)">in</a>
-      <a href="https://github.com/tugrulguner/summonpot" target="_blank" rel="noopener noreferrer" aria-label="GitHub (opens new tab)">GH</a>
-      <a href="https://x.com/Tugrul_Guner" target="_blank" rel="noopener noreferrer" aria-label="X (opens new tab)">X</a>
-      <a href="https://github.com/tugrulguner/summonpot/issues/new?title=Website%20feedback&body=Page%3A%20https%3A%2F%2Fsummonpot.modepot.io%2F%0A%0ADescription%3A%20" target="_blank" rel="noopener noreferrer">Feedback / issue ↗</a>
-    </nav>
+    <nav class="family-feedback-links" aria-label="Feedback"><a href="https://github.com/tugrulguner/summonpot/issues/new?title=Website%20feedback&body=Page%3A%20https%3A%2F%2Fsummonpot.modepot.io%2F%0A%0ADescription%3A%20" target="_blank" rel="noopener noreferrer">Feedback / issue ↗</a></nav>
     <a class="family-home-mobile" href="https://modepot.io/">ModePot</a>
     <button class="family-menu-button" type="button" aria-expanded="false" aria-controls="family-mobile-menu">Menu</button>
     <ThemeSelect />
@@ -33,12 +28,7 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
     <a href="https://discord.gg/u3AANZr6RG">Community</a>
     <a href="https://tugrul.modepot.io/">About Tugrul</a>
   </nav>
-  <nav class="family-mobile-socials" aria-label="Social and feedback">
-    <a href="https://www.linkedin.com/in/tugrulguner/" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
-    <a href="https://github.com/tugrulguner/summonpot" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
-    <a href="https://x.com/Tugrul_Guner" target="_blank" rel="noopener noreferrer">X ↗</a>
-    <a href="https://github.com/tugrulguner/summonpot/issues/new?title=Website%20feedback&body=Page%3A%20https%3A%2F%2Fsummonpot.modepot.io%2F%0A%0ADescription%3A%20" target="_blank" rel="noopener noreferrer">Feedback / issue ↗</a>
-  </nav>
+  <nav class="family-feedback-menu" aria-label="Feedback"><a href="https://github.com/tugrulguner/summonpot/issues/new?title=Website%20feedback&body=Page%3A%20https%3A%2F%2Fsummonpot.modepot.io%2F%0A%0ADescription%3A%20" target="_blank" rel="noopener noreferrer">Feedback / issue ↗</a></nav>
   <nav class="family-mobile-docs" aria-label="Summonpot documentation">
     <a href="/">Overview</a>
     <a href="/quick-start/">Quick start</a>
@@ -82,14 +72,13 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
   :global([data-theme='light'] .summonpot-wordmark .wordmark-pot) { color:#6542C4; }
   .header { display:flex; gap:var(--sl-nav-gap); justify-content:space-between; align-items:center; height:100%; }
     .title-wrapper { overflow:clip; padding:.25rem; margin:-.25rem; min-width:0; }
-    .right-group,.family-links,.header-tools,.family-socials { display:flex; align-items:center; }
+    .right-group,.family-links,.header-tools,.family-feedback-links { display:flex; align-items:center; }
     .right-group { gap:1rem; }
-    .family-links,.family-socials { gap:.25rem; }
-    .family-socials a { box-sizing:border-box; display:inline-flex; min-width:44px; min-height:44px; align-items:center; justify-content:center; color:var(--sl-color-white); text-decoration:none; font-size:23px; font-weight:650; }
-    .family-socials a:focus-visible { outline:2px solid var(--sl-color-accent); outline-offset:2px; }
+    .family-links,.family-feedback-links { gap:.25rem; }
+    .family-feedback-links a { box-sizing:border-box; display:inline-flex; min-width:44px; min-height:44px; align-items:center; justify-content:center; color:var(--sl-color-white); text-decoration:none; font-size:14px; font-weight:650; }
+    .family-feedback-links a:focus-visible { outline:2px solid var(--sl-color-accent); outline-offset:2px; }
     .family-links a,.family-home-mobile { color:var(--sl-color-white); font:400 16px/1.4 var(--mp-font-sans); text-decoration:none; white-space:nowrap; }
     .family-links a { box-sizing:border-box; min-width:44px; min-height:44px; display:inline-flex; font-size:16px; font-weight:400; align-items:center; justify-content:center; min-width:44px; min-height:44px; padding-inline:8px; border-radius:6px; }
-    .family-links a[aria-label] { font-size:23px; }
     .family-links a:focus-visible,.family-mobile-menu a:focus-visible,.family-menu-button:focus-visible { outline:2px solid var(--sl-color-accent); outline-offset:2px; }
     .header-tools { gap:.375rem; min-width:0; }
     .family-home-mobile,.family-menu-button { display:none; }
@@ -104,7 +93,7 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
       .title-wrapper { flex:0 1 104px; }
       .header-tools { flex:0 0 auto; margin:0; justify-content:flex-end; gap:.375rem; }
       .right-group { display:flex !important; flex:0 0 auto; margin:0; justify-content:flex-end; gap:0; }
-      .family-links, .family-socials, .right-group :global(starlight-lang-select) { display:none !important; }
+      .family-links, .family-feedback-links, .right-group :global(starlight-lang-select) { display:none !important; }
       :global(.site-title) { font-size:16px; }
       :global(.summonpot-wordmark) { font-size:16px; }
       .family-home-mobile { display:inline-flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; padding-inline:2px; font-size:12px; }
@@ -119,7 +108,7 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
       .family-mobile-menu:not([hidden]) { position:fixed; z-index:100; inset:64px 0 auto; display:block; max-height:calc(100dvh - 64px); overflow:auto; padding:12px 16px 24px; border-block:1px solid var(--sl-color-gray-5); background:var(--sl-color-bg-sidebar); box-shadow:0 8px 16px rgb(0 0 0 / .16); }
       .family-mobile-resources,.family-mobile-docs { display:grid; gap:4px; }
       .family-mobile-resources { padding-bottom:12px; border-bottom:1px solid var(--sl-color-gray-5); }
-      .family-mobile-socials { display:grid; gap:4px; padding-block:12px; border-bottom:1px solid var(--sl-color-gray-5); }
+      .family-feedback-menu { display:grid; gap:4px; padding-block:12px; border-bottom:1px solid var(--sl-color-gray-5); }
       .family-mobile-docs { padding-top:12px; }
       .family-mobile-menu a { min-width:44px; display:flex; align-items:center; min-height:44px; padding:8px 12px; border-radius:6px; color:var(--sl-color-white); font:600 14px/1.4 var(--mp-font-sans); text-decoration:none; }
       .family-mobile-menu a:hover { background:var(--sl-color-bg-nav); }

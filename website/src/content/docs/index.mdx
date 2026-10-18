@@ -4,6 +4,8 @@ description: Build typed Python APIs that combine deterministic operations with 
 template: splash
 next: { label: Quick start, link: /quick-start/ }
 ---
+import CreatorSocials from '../../components/CreatorSocials.astro';
+
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 import RoadmapHeroAction from '../../components/RoadmapHeroAction.astro';
@@ -22,7 +24,7 @@ import RoadmapHeroAction from '../../components/RoadmapHeroAction.astro';
       <a class="framework-action tertiary" href="https://github.com/tugrulguner/summonpot" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
     </nav>
     <p class="feedback-action"><a class="framework-action secondary" href="https://github.com/tugrulguner/summonpot/issues/new?title=Website%20feedback&body=Page%3A%20https%3A%2F%2Fsummonpot.modepot.io%2F%0A%0ADescription%3A%20" target="_blank" rel="noopener noreferrer" aria-label="Feedback or issue (opens GitHub in a new tab)">Feedback / issue ↗</a></p>
-    <a class="creator-attribution" href="https://tugrul.modepot.io/">Created by Tugrul Guner</a>
+    <div class="creator-row"><a class="creator-attribution" href="https://tugrul.modepot.io/">Created by Tugrul Guner</a><CreatorSocials /></div>
   </div>
   <figure class="framework-art">
     <img src="/summonpot-lockup.png" alt="Summonpot — a simple contract for deterministic operations and bounded agent-owned decisions" width="1200" height="900" />
