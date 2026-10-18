@@ -2,6 +2,7 @@
 import LanguageSelect from '@astrojs/starlight/components/LanguageSelect.astro';
 import Search from '@astrojs/starlight/components/Search.astro';
 import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
+const feedbackUrl = "https://github.com/tugrulguner/summonpot/issues/new?" + new URLSearchParams({ title: "Website feedback", body: `Page: https://summonpot.modepot.io${Astro.url.pathname}\n\nPlease describe the issue. Do not include private data.` }).toString();
 ---
 <div class="header">
   <div class="title-wrapper sl-flex"><a class="summonpot-wordmark" href="/" aria-label="Summonpot homepage"><span>summon</span><span class="wordmark-pot">pot</span></a></div>
@@ -15,8 +16,8 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
       <a href="https://discord.gg/u3AANZr6RG">Community</a>
       <a href="https://tugrul.modepot.io/">About Tugrul</a>
     </nav>
-    <nav class="family-feedback-links" aria-label="Feedback"><a href="https://github.com/tugrulguner/summonpot/issues/new?title=Website%20feedback&body=Page%3A%20https%3A%2F%2Fsummonpot.modepot.io%2F%0A%0ADescription%3A%20" target="_blank" rel="noopener noreferrer">Feedback / issue ↗</a></nav>
-    <a class="family-home-mobile" href="https://modepot.io/">ModePot</a>
+    <nav class="family-feedback-links" aria-label="Feedback"><a class="feedback-link feedback-entry ph-no-autocapture" href="https://github.com/tugrulguner/summonpot/issues/new?title=Website%20feedback&body=Page%3A%20https%3A%2F%2Fsummonpot.modepot.io%2F%0A%0ADescription%3A%20" target="_blank" rel="noopener noreferrer">Feedback / issue ↗</a></nav>
+    <a class="family-home-mobile feedback-entry ph-no-autocapture" href={feedbackUrl} target="_blank" rel="noopener noreferrer" aria-label="Feedback / report an issue (opens GitHub in a new tab)">Feedback</a>
     <button class="family-menu-button" type="button" aria-expanded="false" aria-controls="family-mobile-menu">Menu</button>
     <ThemeSelect />
     <LanguageSelect />
@@ -24,6 +25,7 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
 </div>
 <div id="family-mobile-menu" class="family-mobile-menu" role="region" aria-label="Menu" hidden>
   <nav class="family-mobile-resources" aria-label="ModePot family">
+    <a href="https://modepot.io/">ModePot</a>
     <a href="https://github.com/tugrulguner/summonpot">GitHub</a>
     <a href="https://discord.gg/u3AANZr6RG">Community</a>
     <a href="https://tugrul.modepot.io/">About Tugrul</a>
@@ -65,6 +67,11 @@ import ThemeSelect from '@astrojs/starlight/components/ThemeSelect.astro';
   }
 </script>
 <style>
+  @media(max-width:380px) {
+    .family-menu-button { min-width:44px; }
+    .family-home-mobile.feedback-entry { padding-inline:0; }
+  }
+  .feedback-entry { border:1px solid currentColor; border-radius:4px; font-size:14px !important; font-weight:600; text-decoration:none; }
   @layer starlight.core {
     :global(.summonpot-wordmark) { display:inline-flex; min-height:44px; align-items:center; color:#F4F2EA; font-weight:700; font-size:1.15rem; text-decoration:none; }
   :global(.summonpot-wordmark .wordmark-pot) { color:#A987FF; }

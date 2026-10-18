@@ -83,7 +83,7 @@ try {
         check(await button.evaluate(node => { const r=node.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }), `${route} ${width}: Menu hit target is clipped or below 44px`);
         await button.focus(); await page.keyboard.press("Enter");
         check(await button.getAttribute("aria-expanded") === "true", `${route} ${width}: keyboard activation did not expand Menu`);
-        for (const [label, href] of expected.slice(1)) {
+        for (const [label, href] of expected) {
           const link = page.locator(`${group} a`).filter({ hasText: new RegExp(`^${label}$`) });
           check(await link.count() === 1 && await link.getAttribute("href") === href, `${route} ${width}: Menu lacks top-level ${label} destination ${href}`);
           if (await link.count()) {
@@ -125,8 +125,14 @@ try {
     }
     if (width < 1024) {
       const modepot = page.locator(".family-home-mobile");
-      check(await modepot.count() === 1 && await modepot.isVisible() && await modepot.getAttribute("href") === "https://modepot.io/", `${route} ${width}: always-visible ModePot return missing`);
-      if (await modepot.count()) check(await modepot.evaluate(node => { const r=node.getBoundingClientRect(); const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2); return r.width >= 44 && r.height >= 44 && r.left >= 0 && r.right <= innerWidth && Boolean(hit && node.contains(hit)); }), `${route} ${width}: ModePot target is below 44px or center-covered`);
+      check(await modepot.count() === 1 && await modepot.isVisible(), `${route} ${width}: always-visible Feedback action missing`);
+      if(await modepot.count()) {
+        const issue=new URL(await modepot.getAttribute("href"));
+        check(issue.origin+issue.pathname === "https://github.com/tugrulguner/summonpot/issues/new",`${route} ${width}: wrong feedback destination`);
+        check(issue.searchParams.get("body").includes("https://summonpot.modepot.io"+(route==="/not-a-real-route/"?"/404":route)),`${route} ${width}: missing canonical page context`);
+        check(await modepot.getAttribute("target")==="_blank"&&await modepot.getAttribute("rel")==="noopener noreferrer",`${route} ${width}: missing safe new-tab attributes`);
+      }
+      if (await modepot.count()) check(await modepot.evaluate(node => { const r=node.getBoundingClientRect(); const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2); return r.width >= 44 && r.height >= 44 && r.left >= 0 && r.right <= innerWidth && Boolean(hit && node.contains(hit)); }), `${route} ${width}: Feedback target is below 44px or center-covered`);
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.body.scrollWidth <= innerWidth), `${route} ${width}: horizontal overflow`);
       const covered = await page.evaluate(() => [...document.querySelectorAll("header .family-home-mobile, header .family-menu-button, header starlight-theme-select select, .family-header>a")].filter(node => { const r=node.getBoundingClientRect(); if (!r.width || !r.height || getComputedStyle(node).display === "none") return false; const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2); return !hit || !node.contains(hit); }).map(node => node.textContent.trim() || node.tagName));
       check(covered.length === 0, `${route} ${width}: compact header controls covered (${covered.join(", ")})`);
