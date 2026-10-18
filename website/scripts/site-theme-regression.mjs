@@ -77,12 +77,13 @@ try {
    await page.close();
   }
  }
- for (const route of ['/', '/quick-start/', '/guides/operations/', '/build/agent-choice/']) for (const theme of ['light', 'dark']) for (const width of [320,390,400,401]) {
+ for (const route of ['/', '/quick-start/', '/guides/operations/', '/build/agent-choice/']) for (const theme of ['light', 'dark']) for (const width of [320,390,400,401,768,1050]) {
   const page = await browser.newPage({ viewport: { width, height: 768 }, colorScheme: theme === 'light' ? 'dark' : 'light', reducedMotion: 'reduce' });
   await page.goto(base + route, { waitUntil: 'networkidle' });
   await page.locator('starlight-theme-select select').first().selectOption(theme);
   await page.evaluate(async () => { await document.fonts.ready; await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); });
-  const identity = await page.locator('header .summonpot-wordmark').evaluate(n => ({ width: n.getBoundingClientRect().width, client: n.clientWidth, content: n.scrollWidth, text: n.textContent.trim() }));
+  const identity = await page.locator('header .summonpot-wordmark').evaluate(n => ({ width: n.getBoundingClientRect().width, client: n.clientWidth, content: n.scrollWidth, text: n.textContent.trim(), right: n.getBoundingClientRect().right, containerRight: n.parentElement.getBoundingClientRect().right }));
+  check(identity.right <= identity.containerRight + 1, `${route} ${theme} ${width}: ancestor clips the wordmark (${JSON.stringify(identity)})`);
   check(identity.width >= 90 && identity.content <= identity.client + 1 && identity.text === 'summonpot', `${route} ${theme} ${width}: narrow header clips product identity (${JSON.stringify(identity)})`);
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.body.scrollWidth <= innerWidth), `${route} ${theme} ${width}: narrow header causes overflow`);
   const covered = await page.evaluate(() => [...document.querySelectorAll('header .family-return, header button[data-open-modal], header starlight-theme-select select')].filter(n => { const r = n.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !r.width || !r.height || !hit || !n.contains(hit); }).map(n => n.tagName + ':' + (n.textContent?.trim() || n.getAttribute('aria-label'))));

@@ -26,7 +26,7 @@ export default defineConfig({
   integrations: [starlight({
     title: 'Summonpot',
     description: 'Modernize APIs for the AI era with one simple contract.',
-    social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/tugrulguner/summonpot' }],
+    social: [{ icon: 'linkedin', label: 'LinkedIn', href: 'https://www.linkedin.com/in/tugrulguner/' }, { icon: 'github', label: 'GitHub', href: 'https://github.com/tugrulguner/summonpot' }, { icon: 'twitter', label: 'X', href: 'https://x.com/Tugrul_Guner' }],
     favicon: '/favicon.svg',
     customCss: ['./src/styles/custom.css'],
     components: { Header: './src/components/FamilyHeader.astro' },
