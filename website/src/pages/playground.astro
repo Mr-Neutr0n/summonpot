@@ -3,6 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { Code } from 'astro:components';
 import { resolve } from 'node:path';
 import { posthogInitialization } from '../analytics/posthog.js';
+const canonical = 'https://summonpot.modepot.io/playground/';
+const title = 'Summonpot playground';
+const description = "Explore Summonpot's shipped bounded-operation contract in a browser-local preview.";
+const socialImage = 'https://summonpot.modepot.io/social-card-v2.png';
 const feedbackUrl = 'https://github.com/tugrulguner/summonpot/issues/new?' + new URLSearchParams({ title:'Website feedback',body:'Page: https://summonpot.modepot.io/playground/\n\nPlease describe the issue. Do not include private data.' }).toString();
 const example = await readFile(resolve(process.cwd(), '../examples/07_bound_operation.py'), 'utf8');
 const signature = example.slice(example.indexOf('def load_customer('), example.indexOf('    """Load one approved')).trimEnd();
@@ -18,7 +22,25 @@ ${endpoint}`;
 
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="description" content="Explore Summonpot's shipped bounded-operation contract in a browser-local preview." /><title>Summonpot playground</title><script is:inline set:html={posthogInitialization}></script></head>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content={description} />
+  <title>{title}</title>
+  <link rel="canonical" href={canonical} />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Summonpot" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:image" content={socialImage} />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={socialImage} />
+  <script is:inline set:html={posthogInitialization}></script>
+</head>
 <body>
   <div class="family-header">
     <a class="product-home" href="/" aria-label="Summonpot homepage"><img src="/favicon.svg" width="28" height="28" alt="" /> <span>Summonpot</span></a>
