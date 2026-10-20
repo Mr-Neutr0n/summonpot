@@ -64,8 +64,9 @@ The current release line provides:
 - Registration-time validation for complete bindings, request and result references, operation ordering, selectable collections, and provable type incompatibility.
 - Fail-closed runtime admission: binding sources must use the exact built-in source
   vocabulary, and every explicit binding, ordering, call-bound, and output contract must fit
-  the one supported required `Exactly(1)` operation shape or registration rejects it. Adding
-  another capability cannot downgrade that contract to the legacy path.
+  supported single-operation or uniquely ordered sequential required `Exactly(1)` shape,
+  or registration rejects it. Adding another capability cannot downgrade that contract to
+  the legacy path.
 - Structural output-namespace validation rejects duplicate field, alias, serialization-alias,
   and computed-field JSON keys at registration, including nested model, dataclass, and typed
   dictionary shapes. Runtime output validation rejects allowed extras that shadow canonical
@@ -158,7 +159,7 @@ finalization, and capability work cannot be preempted; a timeout after synchrono
 does not prove that an effect did not occur. These guarantees do not add result chains, broader
 deterministic execution, or claim context budgeting.
 
-### Unreleased source boundary: sequential operation chains
+### 0.11.0 boundary: sequential operation chains
 
 Current source adds agent-mediated sequential chains of two or more required `Exactly(1)` operations, provided exactly one operation is ready at every step.
 `FromResult` injects fields from a predecessor's locally validated Pydantic result;
@@ -181,8 +182,7 @@ This does not provide rollback or distributed exactly-once effects; cross-reques
 need application idempotency. The runnable [inventory example](examples/10_result_chain/README.md)
 uses real application-owned SQLite operations and persisted receipts, not a framework adapter.
 
-This is an unreleased subset of milestone 2, not completion of the broader milestone.
-Version 0.10.0 does not include it.
+Version 0.11.0 completes this subset of milestone 2, not the broader milestone. Historical v0.10.0 does not include it.
 
 ## Next milestones
 
@@ -203,7 +203,7 @@ work begins at milestone 2.
 
 ### 2. Validated result chains and failure semantics
 
-Status: a sequential-chain subset with one uniquely ready operation at each step is implemented in unreleased source. The remaining milestone expands beyond that subset and establishes broader failure/recovery semantics;
+Status: a sequential-chain subset with one uniquely ready operation at each step is completed in 0.11.0. The remaining milestone expands beyond that subset and establishes broader failure/recovery semantics;
 it must preserve the exercised guarantees below.
 
 Add private multi-operation execution semantics through a useful,
@@ -267,7 +267,7 @@ idempotency, transaction, or read-only semantics make concurrency safe.
 
 ### 3. Producer-constrained agent choices
 
-Completed in unreleased source for sequential chains; this does not enable general graphs
+Completed in 0.11.0 for sequential chains; this does not enable general graphs
 or model-free multi-operation execution. `AgentChoice(from_result=producer)` is limited to
 a producer's locally validated `list[ConcreteModel]` and remains agent-mediated. The
 runtime:

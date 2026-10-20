@@ -182,10 +182,11 @@ routing, and OpenAPI under Summonpot.
   uses a Pydantic request model and has at least one `FromRequest` binding; every remaining argument comes from `FromRequest`
   or an immutable identity-stable callable default, and its output is exactly the endpoint
   response model. This path does not resolve, construct, or call a model.
-- **Typed `Operation` contracts** for the admitted single-operation slice, with exact
-  built-in `FromRequest` and direct `AgentChoice` sources. The broader public source
-  vocabulary remains available for future execution slices but is rejected at endpoint
-  registration when the runtime cannot enforce it.
+- **Typed `Operation` contracts** for the admitted single-operation slice and uniquely
+  ordered sequential required-operation chains. Chains enforce `FromResult` and `after`,
+  return the canonical terminal result, and support producer-backed choices from validated
+  `list[ConcreteModel]` results. Chains remain agent-mediated; unsupported explicit shapes
+  are rejected at registration.
 - **Registration-time contract validation** that rejects missing sources, invalid result
   references, unsupported choices, and provably incompatible types before serving.
 - **Provider-neutral model selection** for OpenAI, Anthropic, Google, Groq, Mistral,
@@ -430,7 +431,7 @@ subclass, and Python's numeric widening permits `int` or `bool` to feed `float`.
 > required `Exactly(1)` operation using `FromRequest`, direct `AgentChoice`, and callable
 > defaults. When every required value is application-owned and the operation output exactly
 > matches the endpoint response model, that operation executes without a model.
-> Unreleased source also enforces a sequential chain of required `Exactly(1)` operations
+> Version 0.11.0 also enforces a sequential chain of required `Exactly(1)` operations
 > connected by `FromResult` or `after`, with producer-backed choices from `list[ConcreteModel]`
 > outputs. Choices use bounded opaque tokens mapped to canonical validated members; empty or
 > oversized sets fail with a fixed redacted 409 before model decision or downstream work.
@@ -442,7 +443,7 @@ subclass, and Python's numeric widening permits `int` or `bool` to feed `float`.
 > is still an explicit contract, so it is rejected unless the declaration supplies the
 > complete enforced shape.
 
-### Unreleased: validated result chains
+### Validated result chains (0.11.0)
 
 A uniquely ready required operation can feed the next step without asking the model to reconstruct arguments. Declare two or more `Required(..., calls=Exactly(1))` operations; use `FromResult` for validated result fields and `after` for independent success ordering. Every step must have exactly one ready operation, and readiness is checked again before invocation.
 
@@ -464,7 +465,7 @@ uncertain timeout; model retries cannot replay effects. Applications own cross-r
 idempotency and transactions. See the runnable [three-step SQLite inventory reservation example](examples/11_linear_result_chain/README.md)
 and the [producer-constrained inventory choice example](examples/12_producer_choice/README.md)
 for real persisted receipts and independent database checks. These application-owned
-operations do not imply a framework database adapter. This feature is not in PyPI 0.10.0.
+operations do not imply a framework database adapter. This feature is included from version 0.11.0; historical v0.10.0 does not include it.
 
 ## How it works today
 
@@ -527,7 +528,7 @@ Summonpot chooses its current execution path without adding a second endpoint AP
 |---|---|
 | Pydantic request model, one required `Exactly(1)` operation, at least one `FromRequest` binding, only `FromRequest` or immutable identity-stable defaults, exact response-model output | Execute directly without a model |
 | A direct `AgentChoice` remains in the admitted single-operation shape | Use the agent runtime with the enforced operation contract |
-| Supported sequential chain of required `Exactly(1)` operations (unreleased source) | Agent-mediated readiness and result binding; return the canonical terminal result |
+| Supported sequential chain of required `Exactly(1)` operations (from 0.11.0) | Agent-mediated readiness and result binding; return the canonical terminal result |
 | Bare callable capabilities with implicit marker bounds | Use the legacy agent runtime |
 | Unsupported explicit binding, ordering, bound, output, or multi-operation shape | Reject during registration |
 
