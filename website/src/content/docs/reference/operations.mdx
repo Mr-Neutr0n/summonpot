@@ -63,7 +63,7 @@ This is signature notation rather than a runnable fragment: `callable` and `Resu
 
 ### Explicit shapes accepted today
 
-The released runtime-enforced explicit slice is the single-operation contract. Unreleased source adds sequential result chains with exactly one ready operation at each step. The chain requires two or more required `Exactly(1)` operations, A→B `FromResult` or independent `after` ordering, and `FromRequest`/`FromResult`, supported immutable defaults, or producer-backed `AgentChoice(from_result=...)` from `list[ConcreteModel]`. Context and broader bounds are unsupported; the chain is agent-mediated, not model-free. Its unique terminal output annotation must exactly match the endpoint response annotation, and its validated canonical result is returned. `FromResult` establishes readiness; optional `after` adds success-ordering. Canonical result objects remain hidden; choice arguments disclose bounded inert candidate evidence separately from completion acknowledgments. Unsupported graphs fail registration.
+The runtime enforces the single-operation contract and, from 0.11.0, sequential result chains with exactly one ready operation at each step. The chain requires two or more required `Exactly(1)` operations, A→B `FromResult` or independent `after` ordering, and `FromRequest`/`FromResult`, supported immutable defaults, or producer-backed `AgentChoice(from_result=...)` from `list[ConcreteModel]`. Context and broader bounds are unsupported; the chain is agent-mediated, not model-free. Its unique terminal output annotation must exactly match the endpoint response annotation, and its validated canonical result is returned. `FromResult` establishes readiness; optional `after` adds success-ordering. Canonical result objects remain hidden; choice arguments disclose bounded inert candidate evidence separately from completion acknowledgments. Unsupported graphs fail registration.
 
 Immutable defaults are exact built-in `None`, `bool`, `int`, `float`, `complex`, `str`, `bytes`; tuples/frozensets recursively containing only these values are also supported. Mutable defaults, custom types/subclasses, and scalar request declarations do not qualify for direct execution.
 
@@ -88,7 +88,7 @@ Capabilities are real application callables, not simulations. Keep the declared 
 
 ## Producer-backed choices in sequential chains
 
-Unreleased source supports `AgentChoice(from_result=producer)` only in the uniquely ready
+Version 0.11.0 supports `AgentChoice(from_result=producer)` only in the uniquely ready
 sequential chain, with a declared producer output of `list[ConcreteModel]`. Candidate
 projection is inert and bounded (128 items and 65,536 JSON characters per binding), respects
 field exclusions and aliases, and invokes no application serializers; the
