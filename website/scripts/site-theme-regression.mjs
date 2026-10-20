@@ -20,6 +20,28 @@ const check=(ok,message)=>{checks++;if(!ok)failures.push(message)};
 const out=process.env.SITE_THEME_EVIDENCE;
 if(out)await mkdir(out,{recursive:true});
 try {
+ // Hold the genuine helper response: the document must still parse its final
+ // homepage frame before this optional keyboard enhancement becomes available.
+ for (const theme of ['light', 'dark']) {
+  const page=await browser.newPage({viewport:{width:320,height:850},colorScheme:theme,reducedMotion:'reduce'});
+  let release;const gate=new Promise(resolve=>release=resolve);
+  let requested;const requestSeen=new Promise(resolve=>requested=resolve);
+  await page.route('**/scripts/homepage-code-keyboard.js',async route=>{
+   const response=await route.fetch();requested();await gate;
+   try {await route.fulfill({response});} catch { /* navigation may have closed */ }
+  });
+  await page.route('**/*posthog.com/**',route=>route.request().method()==='POST'?route.fulfill({status:200,body:'{"status":1}'}):route.continue());
+  try {
+   await page.goto(base+'/',{waitUntil:'commit'});await requestSeen;
+   const parsed=await page.locator('.framework-hero').waitFor({state:'attached',timeout:3000}).then(()=>true,()=>false);
+   check(parsed,`${theme}: homepage parsing is blocked by the optional keyboard script`);
+   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+   const before=await page.locator('.main-pane').boundingBox();
+   release();await page.waitForLoadState('networkidle');await page.evaluate(()=>document.fonts.ready);
+   const after=await page.locator('.main-pane').boundingBox();
+   check(!!before&&!!after&&Math.abs(before.x-after.x)<1&&Math.abs(before.width-after.width)<1&&Math.abs(before.height-after.height)<1,`${theme}: homepage geometry changes when the keyboard script arrives (${JSON.stringify({before,after})})`);
+  } finally {release();await page.close();}
+ }
  for(const route of ['/','/quick-start/','/architecture/','/capabilities/','/guides/operations/','/internals/execution/','/reference/operations/','/build/agent-choice/','/build/direct-execution/']) {
   for(const theme of ['light','dark']) {
    const page=await browser.newPage({viewport:{width:1280,height:900},colorScheme:theme==='light'?'dark':'light',reducedMotion:'reduce'});
@@ -92,10 +114,16 @@ try {
     const range=document.createRange();range.selectNodeContents(wordmark);
     const text=range.getBoundingClientRect();
     const search=document.querySelector('header site-search button').getBoundingClientRect();
-    return {shifts:window.__initialLayoutShifts,wordmark:text.toJSON(),search:search.toJSON()};
+    const controls=[...document.querySelectorAll('header .summonpot-wordmark, header button[data-open-modal], header .family-home-mobile, header .family-menu-button, header select')].filter(element=>element.getClientRects().length).map(element=>({name:element.getAttribute('aria-label')||element.textContent.trim(),rect:element.getBoundingClientRect().toJSON()}));
+    return {shifts:window.__initialLayoutShifts,wordmark:text.toJSON(),search:search.toJSON(),controls};
    });
    check(initialLayout.shifts.length===0,`320px first-load header must not shift during initialization (${JSON.stringify(initialLayout.shifts)})`);
    check(initialLayout.wordmark.right<=initialLayout.search.left,`320px wordmark must not overlap Search (${JSON.stringify(initialLayout)})`);
+   check(initialLayout.controls.length===5 && initialLayout.controls.every(control=>control.rect.width>=44 && control.rect.height>=44),`320px requires all5 readable header targets at44px (${JSON.stringify(initialLayout.controls)})`);
+   for(let i=0;i<initialLayout.controls.length;i++)for(let j=i+1;j<initialLayout.controls.length;j++){
+    const a=initialLayout.controls[i],b=initialLayout.controls[j];
+    check(Math.min(a.rect.right,b.rect.right)-Math.max(a.rect.left,b.rect.left)<=.5 || Math.min(a.rect.bottom,b.rect.bottom)-Math.max(a.rect.top,b.rect.top)<=.5,`320px header targets overlap: ${a.name} / ${b.name}`);
+   }
   }
   const identity = await page.locator('header .summonpot-wordmark').evaluate(n => ({ width: n.getBoundingClientRect().width, client: n.clientWidth, content: n.scrollWidth, text: n.textContent.trim(), right: n.getBoundingClientRect().right, containerRight: n.parentElement.getBoundingClientRect().right }));
   check(identity.right <= identity.containerRight + 1, `${route} ${theme} ${width}: ancestor clips the wordmark (${JSON.stringify(identity)})`);

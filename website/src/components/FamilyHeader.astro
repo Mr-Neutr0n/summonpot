@@ -96,11 +96,13 @@ const feedbackUrl = "https://github.com/tugrulguner/summonpot/issues/new?" + new
       .header { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-content:center; }
     }
     @media (max-width:69.999rem) {
-      .header { display:flex; gap:0; position:relative; }
-      .title-wrapper { flex:0 1 104px; }
-      .header-tools { position:absolute; left:98px; flex:0 0 44px; justify-content:flex-end; gap:.375rem; }
-      .family-home-mobile.feedback-entry { font-size:12px !important; }
-      .right-group { position:absolute; right:16px; display:flex !important; flex:0 0 146px; width:146px; margin:0; justify-content:flex-end; gap:0; }
+      .header { display:flex; gap:0; justify-content:flex-start; }
+      .title-wrapper { flex:0 0 auto; }
+      .header-tools { flex:0 0 44px; margin:0 0 0 1px; justify-content:flex-end; gap:.375rem; }
+      .right-group { display:flex !important; flex:0 0 auto; width:auto; margin:0 0 0 auto; justify-content:flex-end; gap:0; }
+      @media (max-width:380px) {
+        .family-home-mobile.feedback-entry { font-size:13px !important; }
+      }
       .family-links, .family-feedback-links, .right-group :global(starlight-lang-select) { display:none !important; }
       :global(.site-title) { font-size:16px; }
       :global(.summonpot-wordmark) { font-size:16px; }
