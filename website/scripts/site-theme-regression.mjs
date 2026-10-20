@@ -79,9 +79,24 @@ try {
  }
  for (const route of ['/', '/quick-start/', '/guides/operations/', '/build/agent-choice/']) for (const theme of ['light', 'dark']) for (const width of [320,390,400,401,768,1050]) {
   const page = await browser.newPage({ viewport: { width, height: 768 }, colorScheme: theme === 'light' ? 'dark' : 'light', reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+   window.__initialLayoutShifts=[];
+   new PerformanceObserver(list=>window.__initialLayoutShifts.push(...list.getEntries().filter(entry=>!entry.hadRecentInput).flatMap(entry=>entry.sources?.map(source=>({node:source.node?.className,value:entry.value,previous:source.previousRect,current:source.currentRect}))??[]))).observe({type:'layout-shift',buffered:true});
+  });
   await page.goto(base + route, { waitUntil: 'networkidle' });
   await page.locator('starlight-theme-select select').first().selectOption(theme);
   await page.evaluate(async () => { await document.fonts.ready; await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); });
+  if (route === '/' && width === 320) {
+   const initialLayout = await page.evaluate(() => {
+    const wordmark=document.querySelector('header .summonpot-wordmark');
+    const range=document.createRange();range.selectNodeContents(wordmark);
+    const text=range.getBoundingClientRect();
+    const search=document.querySelector('header site-search button').getBoundingClientRect();
+    return {shifts:window.__initialLayoutShifts,wordmark:text.toJSON(),search:search.toJSON()};
+   });
+   check(initialLayout.shifts.length===0,`320px first-load header must not shift during initialization (${JSON.stringify(initialLayout.shifts)})`);
+   check(initialLayout.wordmark.right<=initialLayout.search.left,`320px wordmark must not overlap Search (${JSON.stringify(initialLayout)})`);
+  }
   const identity = await page.locator('header .summonpot-wordmark').evaluate(n => ({ width: n.getBoundingClientRect().width, client: n.clientWidth, content: n.scrollWidth, text: n.textContent.trim(), right: n.getBoundingClientRect().right, containerRight: n.parentElement.getBoundingClientRect().right }));
   check(identity.right <= identity.containerRight + 1, `${route} ${theme} ${width}: ancestor clips the wordmark (${JSON.stringify(identity)})`);
   check(identity.width >= 90 && identity.content <= identity.client + 1 && identity.text === 'summonpot', `${route} ${theme} ${width}: narrow header clips product identity (${JSON.stringify(identity)})`);
