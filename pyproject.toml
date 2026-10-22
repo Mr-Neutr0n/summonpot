@@ -89,6 +89,10 @@ exclude = ["**/AGENTS.md", "/CLAUDE.md", "/.claude", "/.venv*", "/dist"]
 # AGENTS.md and src/summonpot/AGENTS.md while the wheel carried neither.
 exclude = ["**/AGENTS.md", "/CLAUDE.md", "/.claude", "/.venv*", "/dist"]
 
+[tool.uv]
+# Keep the locked aiohttp compatibility line on multidict 6.x.
+constraint-dependencies = ["multidict<7"]
+
 [tool.towncrier]
 directory = "changelog.d"
 filename = "CHANGELOG.md"
