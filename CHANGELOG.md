@@ -26,12 +26,13 @@ release assembles them here — run `make changelog-draft` to preview them.
 
 ### Fixed
 
-- Stabilize the narrow mobile header during custom-element initialization and prevent the 320px wordmark from overlapping Search. The bounded-operation preview now announces readiness, busy, and completed states, and keeps Run disabled until its client controller is ready.
 - Add the standalone playground's missing canonical URL, favicon, and Open Graph/Twitter sharing metadata while preserving its browser-local behavior and existing artwork.
 - Keep a direct, clearly labeled Feedback action visible in compact navigation, while retaining ModePot in the menu and keeping feedback context limited to the canonical public page.
 - Keep personal GitHub, LinkedIn and X links beside the creator attribution with restrained text sizing instead of crowding project navigation.
 - Keep the Summonpot wordmark prefix off-white and use the final flask-matched violet suffix consistently across the README, website, and social artwork.
 - Make the quick-start HTTP example runnable with the installed console command and explicit environment and example-download steps.
+- Stabilize the narrow mobile header during custom-element initialization and prevent the 320px wordmark from overlapping Search. The bounded-operation preview now announces readiness, busy, and completed states, and keeps Run disabled until its client controller is ready.
+- Update website and Python dependencies to address the open Dependabot advisories and the additional certifi advisory found during independent audit. Run pre-commit in an isolated tool environment with patched virtualenv so its packaging requirement does not conflict with the xAI SDK.
 
 
 ## [0.10.0] - 2026-10-13
