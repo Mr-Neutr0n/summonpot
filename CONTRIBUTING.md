@@ -25,9 +25,13 @@ contributors do not solve the same problem.
 git clone https://github.com/tugrulguner/summonpot.git
 cd summonpot
 uv sync --all-extras
-uv run pre-commit install
+uvx --with 'virtualenv>=21.14.9' pre-commit install
 make check
 ```
+
+Pre-commit runs in an isolated tool environment because patched virtualenv requires
+`packaging>=26.3`, while the xAI SDK currently requires `packaging<26`.
+The explicit virtualenv floor keeps the hook installer on the patched release line.
 
 Use `make format` before committing.
 
