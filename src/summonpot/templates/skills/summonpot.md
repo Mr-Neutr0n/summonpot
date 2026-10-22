@@ -10,8 +10,8 @@ uses a Pydantic request model and it has at least
 one `FromRequest` binding, uses only `FromRequest` or immutable identity-stable callable
 defaults, and the operation output is exactly the endpoint response model. Bare legacy
 capabilities still use the provider-neutral agent runtime. Unsupported explicit contracts
-are rejected before serving. Current source also supports longer sequential chains when each step has exactly one ready operation. Broader graph execution remains planned. Broader multi-operation deterministic execution remains planned. This
-implementation is beyond historical v0.10.0 and is not yet published. The framework
+are rejected before serving. Version 0.11.0 supports longer sequential chains when each step has exactly one ready operation. Broader graph execution remains planned. Broader multi-operation deterministic execution remains planned. This
+implementation is included from 0.11.0; historical v0.10.0 does not include it. The framework
 owns execution, including any agent loop. **The ellipsis is a complete declaration body**,
 not an implementation waiting to be written. Calling the decorated declaration directly is
 rejected; execution goes through the served endpoint.
@@ -168,7 +168,7 @@ The argument sources mean:
 | framework-owned context | `FromContext("key")` |
 | direct or collection-backed model selection | `AgentChoice(...)` |
 
-`FromResult` and `after` are enforced in an unreleased sequential chain of two or more operations, provided exactly one operation is ready at each step. Such a chain may also use `AgentChoice(from_result=producer)` to choose from a producer's locally validated list of concrete Pydantic models.
+`FromResult` and `after` are enforced in a sequential chain of two or more operations from 0.11.0, provided exactly one operation is ready at each step. Such a chain may also use `AgentChoice(from_result=producer)` to choose from a producer's locally validated list of concrete Pydantic models.
 `FromResult` itself establishes producer readiness; `after` independently requires
 successful predecessor completion. The chain remains agent-mediated, not model-free.
 Its unique terminal operation's full output

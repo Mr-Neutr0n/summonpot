@@ -1,1 +1,0 @@
-Stabilize the narrow mobile header during custom-element initialization and prevent the 320px wordmark from overlapping Search. The bounded-operation preview now announces readiness, busy, and completed states, and keeps Run disabled until its client controller is ready.

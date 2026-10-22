@@ -10,6 +10,31 @@ release assembles them here — run `make changelog-draft` to preview them.
 
 <!-- towncrier release notes start -->
 
+## [0.11.0] - 2026-10-22
+
+### Added
+
+- Add agent-mediated sequential required-operation chains, validated `FromResult` injection, enforced `after` ordering, and SQLite inventory examples. Return the canonical validated terminal result instead of model-authored success claims. Failed, cancelled, and uncertain starts retain their reservations; model retries cannot replay effects. Applications retain responsibility for cross-request idempotency and transactions.
+- Add producer-constrained `AgentChoice(from_result=...)` to uniquely ordered sequential `Required(..., calls=Exactly(1))` chains. Choices come only from a successful producer's locally validated `list[ConcreteModel]`; the model sees opaque request-local tokens and inert projected candidate descriptions, never canonical results. Selection maps back to the exact validated member without trusting Python equality. Candidate sets are limited to 128 items and 65,536 JSON characters per binding; empty, unavailable, and oversized sets fail with a fixed redacted 409 before model decision or downstream work, with no extra model request. This remains agent-mediated, not model-free; direct single-operation `AgentChoice` behavior is unchanged. Primitive/untyped collections, direct unbounded choices in chains, context, broader bounds, and general graphs remain unsupported. The historical v0.10.0 release is unchanged.
+- Support validated sequential operation chains of two or more steps with exactly one ready operation at every step. Broader graph execution, context, and recovery remain planned.
+
+### Changed
+
+- Add accessible social links and a product-specific feedback route to the Summonpot website.
+- Clarify the endpoint contract and framework-owned orchestration across the README, roadmap, and website. Distinguish the validated terminal result and agent-mediated sequential-chain slice from the broader deferred model-free compiler.
+- Match Summonpot’s wordmark suffix to the existing flask violet across canonical, raster, social, and website header branding.
+
+### Fixed
+
+- Add the standalone playground's missing canonical URL, favicon, and Open Graph/Twitter sharing metadata while preserving its browser-local behavior and existing artwork.
+- Keep a direct, clearly labeled Feedback action visible in compact navigation, while retaining ModePot in the menu and keeping feedback context limited to the canonical public page.
+- Keep personal GitHub, LinkedIn and X links beside the creator attribution with restrained text sizing instead of crowding project navigation.
+- Keep the Summonpot wordmark prefix off-white and use the final flask-matched violet suffix consistently across the README, website, and social artwork.
+- Make the quick-start HTTP example runnable with the installed console command and explicit environment and example-download steps.
+- Stabilize the narrow mobile header during custom-element initialization and prevent the 320px wordmark from overlapping Search. The bounded-operation preview now announces readiness, busy, and completed states, and keeps Run disabled until its client controller is ready.
+- Update website and Python dependencies to address the open Dependabot advisories and the additional certifi advisory found during independent audit. Run pre-commit in an isolated tool environment with patched virtualenv so its packaging requirement does not conflict with the xAI SDK.
+
+
 ## [0.10.0] - 2026-10-13
 
 ### Added

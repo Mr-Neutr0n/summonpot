@@ -121,7 +121,7 @@ def test_skill_states_the_current_binding_execution_boundary():
     assert "rejected at registration" in body
 
 
-def test_skill_documents_sequential_chain_authority_and_unreleased_boundary():
+def test_skill_documents_sequential_chain_authority_and_version_boundary():
     body = " ".join(skill_body().split())
     assert "sequential chain of two or more operations" in body
     assert "exactly one operation is ready at each step" in body
@@ -133,6 +133,8 @@ def test_skill_documents_sequential_chain_authority_and_unreleased_boundary():
     assert "call maxima count starts" in body
     assert "uncertain starts retain their reservations" in body
     assert "Direct `AgentChoice` remains supported" in body
+    assert "Version 0.11.0 supports" in body
+    assert "historical v0.10.0 does not include it" in body
 
 
 def test_skill_documents_producer_backed_choices_and_limits():

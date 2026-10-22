@@ -93,7 +93,7 @@ direct `AgentChoice`, or callable defaults. Trusted/defaulted arguments are abse
 model schema, the single start is reserved before application code, and `output=` is
 validated before the operation satisfies `Required`.
 
-Unreleased source also admits a sequential chain of required `Exactly(1)` operations
+Version 0.11.0 also admits a sequential chain of required `Exactly(1)` operations
 with exactly one ready operation at each step, without a two-operation ceiling,
 connected by `FromResult` or `after`. Bound result fields are read only after local producer
 validation, and the response is the canonical result of the unique terminal operation whose
