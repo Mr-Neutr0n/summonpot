@@ -26,6 +26,7 @@ release assembles them here — run `make changelog-draft` to preview them.
 
 ### Fixed
 
+- Stabilize the narrow mobile header during custom-element initialization and prevent the 320px wordmark from overlapping Search. The bounded-operation preview now announces readiness, busy, and completed states, and keeps Run disabled until its client controller is ready.
 - Add the standalone playground's missing canonical URL, favicon, and Open Graph/Twitter sharing metadata while preserving its browser-local behavior and existing artwork.
 - Keep a direct, clearly labeled Feedback action visible in compact navigation, while retaining ModePot in the menu and keeping feedback context limited to the canonical public page.
 - Keep personal GitHub, LinkedIn and X links beside the creator attribution with restrained text sizing instead of crowding project navigation.
