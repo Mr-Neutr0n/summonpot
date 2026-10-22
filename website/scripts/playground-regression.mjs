@@ -63,6 +63,21 @@ const cleared = async (page) =>
   (await page.locator("[data-step].active").count()) === 0 &&
   !(await page.locator("#rejection").textContent()).trim();
 try {
+  const delayed = await browser.newPage({ viewport: { width: 320, height: 850 }, colorScheme: 'dark' });
+  let releaseModule;
+  const moduleGate = new Promise(resolve => { releaseModule = resolve; });
+  let moduleRequested;
+  const moduleRequest = new Promise(resolve => { moduleRequested = resolve; });
+  await delayed.route('**/_astro/playground.*.js', async route => { moduleRequested(); await moduleGate; await route.continue(); });
+  await delayed.goto(url, { waitUntil: 'commit' });
+  await delayed.locator('#run-readiness').waitFor();
+  await moduleRequest;
+  check(await delayed.locator('button[type="submit"]').isDisabled(), 'Run must remain unavailable until its controller initializes');
+  check((await delayed.locator('#run-readiness').textContent()).includes('Preparing'), 'pre-initialization state must be announced');
+  releaseModule();
+  await delayed.waitForFunction(() => !document.querySelector('button[type="submit"]')?.disabled);
+  check((await delayed.locator('#run-readiness').textContent()).includes('Ready to run'), 'Run must become available with explicit readiness after module initialization');
+  await delayed.close();
   const page = await browser.newPage({
     viewport: { width: 1280, height: 900 },
     colorScheme: "light",
@@ -92,6 +107,8 @@ try {
   check(composition.primaryFont.includes('Avenir Next'),'playground action typography must inherit the shared Avenir system');
   check(composition.sharedCanvas==='#f8f7f4'&&composition.sharedAccent==='#6542a6','playground shared canvas/accent tokens drifted from the family contract');
   check(composition.run.height === 44 && composition.reset.height === 44 && composition.run.top === composition.reset.top, 'primary actions must share a 44px height and baseline');
+  check(await page.locator('button[type="submit"]').isEnabled(), 'Run must become enabled after preview initialization');
+  check((await page.locator('#run-readiness').textContent()).includes('Ready to run'), 'initialized preview readiness must be explicit');
   check(Math.abs(composition.code.top - composition.controls.top) <= 1 && composition.result.bottom <= composition.controls.bottom, 'code and interactive result must form one aligned workbench');
   check(composition.flow === 3 && composition.closed, 'authority flow must be visible and secondary details initially closed');
   check((await page.locator('.intro').innerText()).includes('The request owns the customer ID'), 'the defining request/choice distinction must lead the playground');
@@ -141,6 +158,7 @@ try {
 
   await run();
   await waitRunning();
+  check(await page.locator('button[type="submit"]').isDisabled() && (await page.locator('#run-readiness').textContent()).includes('Running'), 'an active preview must disable Run and announce its busy state');
   await page.locator("#reset").click();
   check(await cleared(page), "reset did not immediately cancel and clear run");
   await page.waitForTimeout(1050);

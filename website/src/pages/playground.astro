@@ -93,7 +93,8 @@ ${endpoint}`;
         <form id="customer-form" novalidate>
           <label>Customer ID <span>Request-owned · FromRequest</span><input name="customer_id" type="text" value="customer-7" required /><small>Approved IDs: customer-7 and customer-9</small></label>
           <label>Display format <span>Agent-owned · bounded choice</span><select name="format"><option value="summary">Summary</option><option value="detailed">Detailed</option></select><small>You select the permitted value in this preview.</small></label>
-          <div class="actions"><button type="submit">Run contract</button><button class="secondary" type="button" id="reset">Reset</button></div>
+          <div class="actions"><button type="submit" disabled aria-disabled="true">Run contract</button><button class="secondary" type="button" id="reset">Reset</button></div>
+          <p id="run-readiness" role="status" aria-live="polite">Preparing the browser preview…</p>
           <button class="boundary-test" type="button" id="try-override">Try overriding the request-owned ID ↗</button>
           <p id="rejection" role="alert" aria-live="assertive"></p>
         </form>
@@ -153,11 +154,20 @@ ${endpoint}`;
       } catch { /* Cross-origin embeds retain their system theme. */ }
     }
     const form = document.querySelector<HTMLFormElement>('#customer-form')!;
+    const runButton = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    const readiness = document.querySelector<HTMLElement>('#run-readiness')!;
+    runButton.disabled = false;
+    runButton.removeAttribute('aria-disabled');
+    readiness.textContent = 'Ready to run the browser preview.';
     const output = (id: string) => document.getElementById(id)!;
     function resetSteps() { document.querySelectorAll('[data-step]').forEach((el) => el.classList.remove('active')); }
     let runVersion = 0;
     let pendingTimers: Array<{ timer: number; cancel: () => void }> = [];
-    function cancelRun() { runVersion++; pendingTimers.forEach(({ timer, cancel }) => { clearTimeout(timer); cancel(); }); pendingTimers = []; }
+    function setRunning(running: boolean) {
+      runButton.disabled = running;
+      readiness.textContent = running ? 'Running the browser preview…' : 'Ready to run the browser preview.';
+    }
+    function cancelRun() { runVersion++; pendingTimers.forEach(({ timer, cancel }) => { clearTimeout(timer); cancel(); }); pendingTimers = []; setRunning(false); }
     function clearPresentation() {
       resetSteps(); output('result-title').textContent = 'Ready to run'; output('status').textContent = 'BROWSER PREVIEW'; output('result-copy').textContent = 'The operation result will appear here.';
       for (const id of ['bound-customer-id','customer-name','customer-status','customer-format']) output(id).textContent = '—';
@@ -171,6 +181,7 @@ ${endpoint}`;
       if (!/^customer-(7|9)$/.test(customerId)) { reject('Rejected: choose an approved customer ID (customer-7 or customer-9). The request owns this ID.'); return; }
       if (format !== 'summary' && format !== 'detailed') { reject('Rejected: format is outside the declared AgentChoice values.'); return; }
       const attempt = outcomes.start('bounded-operation');
+      setRunning(true);
       try {
         output('trace-input').textContent = `FromRequest · customer_id=${customerId}`;
         output('trace-choice').textContent = `AgentChoice · ${format} (visitor-selected preview)`; output('trace-result').textContent = 'Operation result · running';
@@ -181,10 +192,13 @@ ${endpoint}`;
         output('customer-name').textContent = record.name; output('customer-status').textContent = record.status; output('customer-format').textContent = String(format);
         output('trace-result').textContent = `Operation result · ${customerId} / ${record.name} / ${record.status} / ${format}`;
         output('result-title').textContent = `${record.name} · ${record.status}`; output('status').textContent = 'LOCAL CONTRACT PREVIEW';
+        readiness.textContent = 'Preview complete. Run again to try another request.';
         output('result-copy').textContent = format === 'summary' ? `${record.name} is ${record.status}.` : `${record.name} (${customerId}) — status: ${record.status}; format: detailed.`;
         outcomes.complete(attempt, 'success');
+        runButton.disabled = false;
       } catch {
         outcomes.complete(attempt, 'failed', 'execution');
+        setRunning(false);
         // The result surface itself may be broken; feedback must not lose the completion.
         try {
           resetSteps();
