@@ -1,0 +1,1 @@
+Add the validated producer-choice chain diagram after the existing overview in the README, homepage, and execution internals guide. Include the rendered PNG and deterministic SVG renderer; preserve the existing diagrams and artwork byte-for-byte.

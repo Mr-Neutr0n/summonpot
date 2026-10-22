@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+<title id="title">Validated producer-choice chain in Summonpot</title>
+<desc id="desc">A four-step agent-mediated inventory flow. Summonpot validates bounded inventory candidates and gives the model inert evidence with opaque tokens. The agent selects one token. Summonpot verifies request-local token membership and binds it to the exact canonical candidate. The application-owned reservation operation checks stock and revision inside a SQLite transaction and persists an idempotent order receipt, which local validation returns as the canonical terminal result.</desc>
+<defs><marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0 0L12 6L0 12Z" fill="#9b82d8"/></marker><style>
+text{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#f4f1fb}.title{font-size:36px;font-weight:700}.sub{font-size:19px;fill:#c5bfd2}.card{fill:#1c1b22;stroke:#8e72cf;stroke-width:2}.num{fill:#9272d5}.numtext{font-size:20px;font-weight:700}.head{font-size:23px;font-weight:700}.body{font-size:17px;fill:#ded9e8}.tiny{font-size:15px;fill:#c5bfd2}.label{font-size:14px;font-weight:700;letter-spacing:1px;fill:#c7afff}.arrow{stroke:#a88de5;stroke-width:4;fill:none;marker-end:url(#arrow)}.boundary{stroke:#8e72cf;stroke-width:2;stroke-dasharray:8 7;fill:#17151c}.foot{font-size:16px;font-weight:600;fill:#dfd3ff}
+</style></defs>
+<rect width="1440" height="900" rx="24" fill="#111015"/><path d="M40 76H1400" stroke="#30283d"/>
+<text x="64" y="66" class="title">A validated choice can drive a real operation</text><text x="64" y="108" class="sub">Producer evidence is bounded; the application remains the authority for writes and receipts.</text>
+<rect x="54" y="145" width="1332" height="600" rx="22" class="boundary"/><text x="82" y="180" class="label">SUMMONPOT RUNTIME · VALIDATES CONTRACT, TOKEN BINDING, AND RESULTS</text>
+<rect x="86" y="222" width="278" height="390" rx="18" class="card"/><circle cx="119" cy="258" r="19" class="num"/><text x="113" y="265" class="numtext">1</text><text x="151" y="265" class="head">Find candidates</text>
+<text x="112" y="311" class="body"><tspan x="112" dy="0">Application query returns</tspan><tspan x="112" dy="27">validated Candidate records</tspan><tspan x="112" dy="27">from current in-stock rows.</tspan></text>
+<rect x="108" y="407" width="234" height="95" rx="12" fill="#272131" stroke="#69548f"/><text x="126" y="439" class="tiny">snapshot: item B</text><text x="126" y="464" class="tiny">stock 12 · revision 1</text><text x="126" y="487" class="tiny">canonical Candidate object</text>
+<text x="112" y="550" class="label">BOUNDED INPUT</text><text x="112" y="580" class="tiny">max 128 candidates · 65,536 chars</text>
+<path d="M374 415H410" class="arrow"/>
+<rect x="424" y="222" width="278" height="390" rx="18" class="card"/><circle cx="457" cy="258" r="19" class="num"/><text x="451" y="265" class="numtext">2</text><text x="489" y="265" class="head">Offer evidence</text>
+<text x="450" y="311" class="body"><tspan x="450" dy="0">Runtime projects inert, bounded</tspan><tspan x="450" dy="27">candidate descriptions plus</tspan><tspan x="450" dy="27">opaque request-local tokens.</tspan></text>
+<rect x="446" y="407" width="234" height="95" rx="12" fill="#272131" stroke="#69548f"/><text x="464" y="439" class="tiny">model sees: “Blue Notebook”</text><text x="464" y="464" class="tiny">token: c_7f… (opaque)</text><text x="464" y="487" class="tiny">not the canonical object</text>
+<text x="450" y="550" class="label">AGENT-MEDIATED</text><text x="450" y="580" class="tiny">agent returns a candidate token</text>
+<path d="M712 415H748" class="arrow"/>
+<rect x="762" y="222" width="278" height="390" rx="18" class="card"/><circle cx="795" cy="258" r="19" class="num"/><text x="789" y="265" class="numtext">3</text><text x="827" y="265" class="head">Verify token</text>
+<text x="788" y="311" class="body"><tspan x="788" dy="0">Runtime checks token belongs</tspan><tspan x="788" dy="27">to this request's producer set,</tspan><tspan x="788" dy="27">then binds the original member.</tspan></text>
+<rect x="784" y="407" width="234" height="95" rx="12" fill="#272131" stroke="#69548f"/><text x="802" y="439" class="tiny">membership verified locally</text><text x="802" y="464" class="tiny">token → exact Candidate B</text><text x="802" y="487" class="tiny">equality is not authority</text>
+<text x="788" y="550" class="label">RUNTIME AUTHORITY</text><text x="788" y="580" class="tiny">no model-authored object/id</text>
+<path d="M1050 415H1086" class="arrow"/>
+<rect x="1100" y="222" width="254" height="390" rx="18" class="card"/><circle cx="1133" cy="258" r="19" class="num"/><text x="1127" y="265" class="numtext">4</text><text x="1165" y="265" class="head">Reserve order</text>
+<text x="1126" y="311" class="body"><tspan x="1126" dy="0">Exact application operation</tspan><tspan x="1126" dy="27">checks stock + revision and</tspan><tspan x="1126" dy="27">commits SQLite transaction.</tspan></text>
+<rect x="1122" y="407" width="210" height="95" rx="12" fill="#272131" stroke="#69548f"/><text x="1140" y="439" class="tiny">decrement + order row</text><text x="1140" y="464" class="tiny">idempotency in application</text><text x="1140" y="487" class="tiny">typed canonical receipt</text>
+<text x="1126" y="550" class="label">APPLICATION AUTHORITY</text><text x="1126" y="580" class="tiny">validated terminal result</text>
+<rect x="86" y="654" width="1268" height="57" rx="14" fill="#25202e" stroke="#55466c"/><text x="112" y="689" class="foot">Chain stays agent-mediated—even without AgentChoice. App owns transactions and idempotency; no exactly-once completion or rollback claim.</text>
+<text x="64" y="796" class="label">WHO OWNS WHAT</text><text x="64" y="830" class="tiny">Summonpot: bounds evidence, verifies token membership, validates operation/result.</text><text x="64" y="858" class="tiny">Agent: selects only among presented candidates. Application: checks live state, commits the write, owns idempotency.</text>
+</svg>

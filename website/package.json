@@ -8,7 +8,7 @@
     "precheck": "node scripts/prepare-source-docs.mjs",
     "check": "astro check",
     "prebuild": "node scripts/prepare-source-docs.mjs",
-    "build": "node scripts/render-wordmark.mjs --check && astro build && node --test tests/*.test.mjs && node scripts/export-docs.mjs && node scripts/verify-rendered-output.mjs && node scripts/homepage-composition-regression.mjs && node scripts/playground-regression.mjs && node scripts/site-theme-regression.mjs && node scripts/navigation-regression.mjs",
+    "build": "node scripts/render-wordmark.mjs --check && node scripts/render-validated-producer-choice.mjs && astro build && node --test tests/*.test.mjs && node scripts/export-docs.mjs && node scripts/verify-rendered-output.mjs && node scripts/homepage-composition-regression.mjs && node scripts/playground-regression.mjs && node scripts/site-theme-regression.mjs && node scripts/navigation-regression.mjs",
     "test:analytics": "node scripts/analytics-sanitizer-regression.mjs",
     "test:playground": "node --test tests/*.test.mjs && node scripts/playground-regression.mjs",
     "render:wordmark": "node scripts/render-wordmark.mjs",

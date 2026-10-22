@@ -155,6 +155,44 @@ def test_readme_replaces_the_text_formula_with_a_png_flow_diagram():
     assert "every other declaration uses the agent runtime" in content
 
 
+def test_readme_adds_chain_diagram_after_preserved_overview_with_runnable_text_equivalent():
+    readme = README.read_text(encoding="utf-8")
+    introduction = readme.split("## Why summonpot?", 1)[0]
+    overview = introduction.index("one-declaration-two-flows.png")
+    chain = introduction.index("docs/assets/validated-producer-choice.png")
+    source = ROOT / "docs/assets/validated-producer-choice.svg"
+    raster = ROOT / "docs/assets/validated-producer-choice.png"
+
+    assert overview < chain
+    assert source.is_file() and raster.is_file()
+    assert 'width="960" height="600"' in introduction
+    assert "Open the full-size diagram" in introduction
+    for claim in (
+        "opaque tokens",
+        "canonical objects",
+        "token membership",
+        "agent-mediated",
+        "transactions and idempotency",
+    ):
+        assert claim in introduction
+
+
+def test_homepage_and_execution_guide_keep_overview_before_new_chain():
+    homepage = (ROOT / "website/src/content/docs/index.mdx").read_text(encoding="utf-8")
+    execution = (ROOT / "website/src/content/docs/internals/execution.mdx").read_text(
+        encoding="utf-8"
+    )
+    for text in (homepage, execution):
+        overview = text.index("one-declaration-two-flows.png")
+        chain = text.index("validated-producer-choice.png?v=0.11.0")
+        assert overview < chain
+        assert 'loading="lazy"' in text
+        assert "Open full size" in text
+        assert "opaque tokens" in text
+        assert "agent-mediated" in text
+        assert "idempotency" in text
+
+
 def test_readme_keeps_the_established_structure_without_version_history():
     readme = README.read_text(encoding="utf-8")
 

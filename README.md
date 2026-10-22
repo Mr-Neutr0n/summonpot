@@ -41,6 +41,19 @@
   <img src="https://raw.githubusercontent.com/tugrulguner/summonpot/a3238041b53f6f07d4575ecfae5a77f60a551500/docs/assets/one-declaration-two-flows.png" alt="One Summonpot application branches into the exact shipped single-operation direct slice or an agent-backed endpoint through the same typed HTTP and OpenAPI framework" width="960">
 </p>
 
+### Validated producer-choice chain
+
+The overview above remains the framework map. This supporting diagram traces the runnable
+[producer-choice inventory example](examples/12_producer_choice/README.md): bounded candidate
+evidence reaches the model with opaque tokens, Summonpot verifies token membership and binds
+the exact canonical candidate, and the application-owned operation checks live stock and
+revision before committing its typed receipt. The chain remains agent-mediated, even without
+an `AgentChoice`; the application owns transactions and idempotency.
+
+<a href="docs/assets/validated-producer-choice.png"><img src="docs/assets/validated-producer-choice.png" width="960" height="600" alt="Four-step validated producer choice: the application returns bounded in-stock candidate records; Summonpot shows inert descriptions and opaque tokens to the model; the agent selects a token that Summonpot verifies and binds to the exact canonical candidate; the application operation checks stock and revision in SQLite, commits an order and returns its locally validated receipt. Summonpot verifies token membership, but the model does not receive canonical objects. The chain remains agent-mediated; application code owns transactions and idempotency." /></a>
+
+[Open the full-size diagram](docs/assets/validated-producer-choice.png).
+
 Summonpot modernizes APIs for AI without replacing the endpoint with a separate agent
 layer. The endpoint remains the stable public abstraction while its contract combines exact
 application behavior with explicitly bounded agentic decisions.

@@ -34,7 +34,7 @@ try {
    const links=[...document.querySelectorAll('.framework-actions a')].map(a=>({text:a.textContent.trim(),href:a.getAttribute('href'),cls:a.className,box:(()=>{const r=a.getBoundingClientRect();return {width:r.width,height:r.height,bottom:r.bottom}})()}));
    const main=document.querySelector('.main-frame')?.getBoundingClientRect();
    const markdown=document.querySelector('.sl-markdown-content')?.getBoundingClientRect();
-   const diagrams=[...document.querySelectorAll('main .supporting-diagram')].map(f=>({img:f.querySelector('img')?.currentSrc,alt:f.querySelector('img')?.alt,caption:f.querySelector('figcaption')?.innerText,link:f.querySelector('figcaption a')?.href,box:(()=>{const r=f.getBoundingClientRect();return {x:r.x,right:r.right}})()}));
+   const diagrams=[...document.querySelectorAll('main .supporting-diagram')].map(f=>({img:f.querySelector('img')?.getAttribute('src'),alt:f.querySelector('img')?.alt,caption:f.querySelector('figcaption')?.innerText,link:f.querySelector('figcaption a')?.href,box:(()=>{const r=f.getBoundingClientRect();return {x:r.x,right:r.right}})()}));
    return {main:main&&{x:main.x,width:main.width,right:main.right},markdown:markdown&&{x:markdown.x,width:markdown.width,right:markdown.right},hero:box('.framework-hero'),copy:box('.framework-copy'),art:box('.framework-art'),image:box('.framework-art img'),actions:links,credit:box('.framework-copy .creator-attribution'),install:box('.installation-strip'),notice:box('.maturity-notice'),demo:box('.project-demo'),diagrams,installCommand:document.querySelector('.installation-strip code')?.textContent,theme:document.documentElement.dataset.theme, overflow:document.documentElement.scrollWidth>innerWidth, h1:[...document.querySelectorAll('main h1')].filter(x=>x.getClientRects().length).map(x=>x.textContent.trim()), frames:document.querySelectorAll('iframe').length, body:getComputedStyle(document.body).backgroundColor};
   });
   check(state.theme===theme,`${width}: theme mismatch`);
@@ -74,13 +74,29 @@ try {
   check(state.credit?.y>=Math.max(...state.actions.map(a=>a.box.bottom)),`${width}: creator credit is not immediately after the actions`);
   check(state.install&&state.notice&&state.demo&&state.install.y>state.hero.y&&state.notice.y>state.install.y&&state.demo.y>state.notice.y,`${width}: installation/maturity/demo section order incorrect`);
   check(state.frames===0,`${width}: homepage must link to, not embed, the standalone playground (${state.frames} iframe(s))`);
-  check(state.diagrams.length===1,`${width}/${theme}: expected exactly one meaningful supporting execution diagram (the original README diagram), got ${state.diagrams.length}`);
-  check(state.diagrams[0]?.img?.endsWith('/diagrams/one-declaration-two-flows.png'),`${width}/${theme}: the original supporting execution diagram must remain on the homepage`);
+  check(state.diagrams.length===2,`${width}/${theme}: expected the preserved overview followed by the additive producer-choice diagram, got ${state.diagrams.length}`);
+  check(state.diagrams[0]?.img?.endsWith('/diagrams/one-declaration-two-flows.png'),`${width}/${theme}: the original overview diagram must remain first on the homepage`);
+  check(state.diagrams[1]?.img?.includes('/diagrams/validated-producer-choice.png?v=0.11.0'),`${width}/${theme}: the validated producer-choice diagram must follow the overview`);
   for(const [i,diagram] of state.diagrams.entries()){
    check(Boolean(diagram.img&&diagram.alt&&diagram.alt.length>30&&diagram.caption),`${width}/${theme}: diagram ${i} needs image, meaningful alt text and a visible caption`);
-   check(Boolean(diagram.link&&new URL(diagram.link).pathname===new URL(diagram.img).pathname),`${width}/${theme}: diagram ${i} needs an exact full-size link`);
+   check(Boolean(diagram.link&&new URL(diagram.link).pathname===new URL(diagram.img,page.url()).pathname),`${width}/${theme}: diagram ${i} needs an exact full-size link`);
    check(Boolean(diagram.box&&diagram.box.x>=0&&diagram.box.right<=width+1),`${width}/${theme}: diagram ${i} escapes viewport`);
   }
+  const chain=page.locator('.producer-choice-diagram img');
+  await chain.scrollIntoViewIfNeeded();
+  await chain.evaluate(image=>image.decode());
+  const rendered=await chain.evaluate(image=>({width:image.naturalWidth,height:image.naturalHeight,box:image.getBoundingClientRect().toJSON()}));
+  check(rendered.width===1440&&rendered.height===900,`${width}/${theme}: producer-choice raster dimensions are ${rendered.width}x${rendered.height}`);
+  check(Math.abs(rendered.box.height-rendered.box.width*900/1440)<2,`${width}/${theme}: producer-choice diagram aspect ratio is distorted`);
+  const fullUrl=await chain.getAttribute('src');
+  const fullLink=await page.locator('.producer-choice-diagram figcaption a').getAttribute('href');
+  check(Boolean(fullLink&&new URL(fullLink,page.url()).pathname===new URL(fullUrl,page.url()).pathname),`${width}/${theme}: full-size link does not point at the diagram`);
+  const fullPage=await browser.newPage({viewport:{width:1440,height:900}});
+  const fullResponse=await fullPage.goto(new URL(fullUrl,page.url()).href,{waitUntil:'load'});
+  check(fullResponse?.status()===200,`${width}/${theme}: full-size image request did not load`);
+  const opened=await fullPage.locator('img').evaluate(image=>({width:image.naturalWidth,height:image.naturalHeight}));
+  check(opened.width===1440&&opened.height===900,`${width}/${theme}: full-size navigation failed (${opened.width}x${opened.height})`);
+  await fullPage.close();
   if (width === 320) {
    const codeBlocks=page.locator('main .sl-markdown-content pre');
    const count=await codeBlocks.count();

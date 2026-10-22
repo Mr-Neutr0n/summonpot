@@ -9,6 +9,30 @@ import { LinkButton } from '@astrojs/starlight/components';
 
 This is an implementation map, not a promise of a general graph compiler. The runtime currently has a narrow direct executor and an agent-backed executor; registration chooses only a validated supported plan. Follow the source links at the exact ownership boundary when debugging.
 
+## Execution overview
+
+The overview diagram introduces the shared endpoint paths. This focused producer-choice view follows it rather than replacing the framework map.
+
+<figure class="supporting-diagram">
+  <a href="/diagrams/one-declaration-two-flows.png" target="_blank" rel="noreferrer" aria-label="Open the full-size execution overview diagram">
+    <img src="/diagrams/one-declaration-two-flows.png" width="1600" height="900" alt="One Summonpot application branches into the shipped single-operation direct slice or the agent-backed endpoint through the same typed HTTP and OpenAPI framework." loading="lazy" />
+  </a>
+  <figcaption>Framework overview; the direct path is limited to its documented eligibility predicate. <a href="/diagrams/one-declaration-two-flows.png">Open full size</a>.</figcaption>
+</figure>
+
+## Validated producer-choice chain
+
+The [runnable producer-choice inventory example](https://github.com/tugrulguner/summonpot/blob/main/examples/12_producer_choice/README.md) shows the narrower runtime/application boundary. The model sees bounded inert candidate evidence and opaque tokens, never canonical objects. Summonpot verifies request-local token membership and binds the exact validated candidate. The application operation checks live stock and revision, then owns the SQLite transaction, order persistence, and idempotency. Local validation returns the canonical terminal receipt. The chain remains agent-mediated even without `AgentChoice`.
+
+<figure class="supporting-diagram producer-choice-diagram">
+  <a href="/diagrams/validated-producer-choice.png?v=0.11.0" target="_blank" rel="noreferrer" aria-label="Open the full-size validated producer-choice chain diagram">
+    <img src="/diagrams/validated-producer-choice.png?v=0.11.0" width="1440" height="900" alt="Four-step validated producer choice: the application returns bounded in-stock candidate records; Summonpot shows inert descriptions and opaque tokens to the model; the agent selects a token that Summonpot verifies and binds to the exact canonical candidate; the application operation checks stock and revision in SQLite, commits an order and returns its locally validated receipt. The model does not receive canonical objects. The chain remains agent-mediated; application code owns transactions and idempotency." loading="lazy" />
+  </a>
+  <figcaption>Summonpot validates candidate evidence and token binding; application code owns stock checks, the transaction, and idempotency. <a href="/diagrams/validated-producer-choice.png?v=0.11.0">Open full size</a>.</figcaption>
+</figure>
+
+Accessible equivalent: the producer yields validated inventory snapshots; the model selects only from projected descriptions using opaque tokens. The runtime verifies token membership and binds the exact canonical candidate. The application operation checks stock and revision before its transaction and idempotency logic writes the order; local validation returns its canonical receipt.
+
 ## Declaration to immutable plan
 
 1. `Summon.__call__` in [`summon.py`](https://github.com/tugrulguner/summonpot/blob/main/src/summonpot/summon.py) captures path, HTTP method, goal/docstring, request parameters, and output annotation. It rejects direct decorated-function calls and validates explicit declarations during registration.
