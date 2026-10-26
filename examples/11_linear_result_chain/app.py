@@ -10,7 +10,10 @@ from pydantic import BaseModel, Field
 
 from summonpot import Exactly, FromRequest, FromResult, Operation, Required, Summon
 
-DB_PATH = Path(os.environ.get("INVENTORY_DB", "inventory.sqlite3"))
+
+def database_path() -> Path:
+    """Resolve the SQLite location when each operation runs."""
+    return Path(os.environ.get("INVENTORY_DB", "inventory.sqlite3"))
 
 
 class ReservationRequest(BaseModel):
@@ -39,7 +42,7 @@ class ReservationReceipt(BaseModel):
 
 
 def initialize_database(path: Path | None = None) -> None:
-    path = DB_PATH if path is None else path
+    path = database_path() if path is None else path
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as db:
         db.executescript("""
@@ -51,7 +54,7 @@ def initialize_database(path: Path | None = None) -> None:
 
 def lookup_inventory(sku: str) -> InventorySnapshot:
     initialize_database()
-    with sqlite3.connect(DB_PATH) as db:
+    with sqlite3.connect(database_path()) as db:
         row = db.execute(
             "SELECT sku, revision, available FROM inventory WHERE sku = ?", (sku,)
         ).fetchone()
@@ -64,7 +67,7 @@ def persist_reservation(
     idempotency_key: str, sku: str, quantity: int, revision: int, available: int
 ) -> ReservationReference:
     initialize_database()
-    with sqlite3.connect(DB_PATH, timeout=10) as db:
+    with sqlite3.connect(database_path(), timeout=10) as db:
         db.execute("BEGIN IMMEDIATE")
         old = db.execute(
             "SELECT sku, quantity FROM reservations WHERE idempotency_key = ?",
@@ -98,7 +101,7 @@ def persist_reservation(
 
 def read_saved_receipt(idempotency_key: str) -> ReservationReceipt:
     initialize_database()
-    with sqlite3.connect(DB_PATH) as db:
+    with sqlite3.connect(database_path()) as db:
         row = db.execute(
             "SELECT idempotency_key, sku, quantity, inventory_revision, remaining, status FROM reservations WHERE idempotency_key = ?",
             (idempotency_key,),

@@ -526,6 +526,28 @@ class Runtime:
             )
             check_deadline()
             return result
+        if plan.direct_chain_order is not None:
+            for identity in plan.direct_chain_order:
+                await _invoke_bound_operation(
+                    plan.tools[identity],
+                    run,
+                    {},
+                    redact_application_error=_http_error_boundary.get(),
+                )
+                check_deadline()
+            producer_identity = plan.response_producer
+            assert producer_identity is not None
+            result = run.states[producer_identity].result
+            if plan.output_model is not None:
+                assert plan.output_auditor is not None
+                try:
+                    result = plan.output_auditor(result)
+                except Exception:
+                    raise _OperationOutputError(
+                        "Endpoint output did not satisfy its declared contract."
+                    ) from None
+            check_deadline()
+            return result
 
         agent = self._agent_for(endpoint)
         message = self._build_user_message(plan, request)

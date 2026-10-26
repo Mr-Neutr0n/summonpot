@@ -7,6 +7,7 @@ from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
 
 from summonpot import Exactly, FromRequest, FromResult, Operation, Required, Summon
+from summonpot._execution import _register_endpoint
 from summonpot.runtime import Runtime
 
 
@@ -49,6 +50,8 @@ def chain_app(events):
         """Look up the identifier and record it, returning the exact receipt."""
         ...
 
+    # Keep this module's model-retry assertions on the agent execution branch.
+    _register_endpoint(summon.endpoints[0], allow_direct=False)
     return summon
 
 

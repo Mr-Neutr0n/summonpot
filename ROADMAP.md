@@ -184,6 +184,18 @@ uses real application-owned SQLite operations and persisted receipts, not a fram
 
 Version 0.11.0 completes this subset of milestone 2, not the broader milestone. Historical v0.10.0 does not include it.
 
+### Unreleased boundary: model-free resolved chains
+
+The current unreleased source also runs a uniquely ordered chain directly when a Pydantic
+request model and every operation argument are fully resolved by `FromRequest`, validated
+`FromResult`, or supported immutable callable defaults, with at least one request binding.
+The terminal output annotation must exactly match the endpoint response annotation. This
+reuses the private compiled chain order, invocation kernel, per-request ledger, receiving
+and output validation, absolute deadline, and canonical terminal response. No model is
+resolved or constructed and there is no fallback after a chain starts. Chains containing
+producer-backed `AgentChoice` remain agent-mediated; unsupported shapes remain rejected.
+This behavior is unreleased and is not part of published v0.11.0.
+
 ## Next milestones
 
 The ordering below prioritizes complete, enforceable contracts before expanding execution.
@@ -309,6 +321,10 @@ slices are stable:
   known contradictions.
 
 ### 6. Broader deterministic execution compiler
+
+Current unreleased source adds the resolved sequential-chain slice described above.
+The remaining compiler work below extends beyond that narrow slice; published v0.11.0
+still uses the agent runtime for all multi-operation chains.
 
 Select the least-powerful sufficient execution path for validated requests whose private
 plans contain more than the narrow walking skeleton:

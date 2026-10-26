@@ -127,14 +127,18 @@ def test_skill_documents_sequential_chain_authority_and_version_boundary():
     assert "exactly one operation is ready at each step" in body
     assert "unique terminal operation's full output annotation" in body
     assert "canonical validated terminal result, not model-authored claims" in body
-    assert "agent-mediated, not model-free" in body
+    assert "Fully resolved chains run model-free in unreleased source" in body
+    assert "producer-backed `AgentChoice` remain agent-mediated" in body
     assert "Tool results are completion acknowledgments" in body
     assert "separately disclose bounded inert candidate evidence" in body
     assert "call maxima count starts" in body
     assert "uncertain starts retain their reservations" in body
     assert "Direct `AgentChoice` remains supported" in body
     assert "Version 0.11.0 supports" in body
-    assert "historical v0.10.0 does not include it" in body
+    assert (
+        "historical v0.10.0 does not include the 0.11.0 agent-mediated chain either"
+        in body.lower()
+    )
 
 
 def test_skill_documents_producer_backed_choices_and_limits():
@@ -166,7 +170,8 @@ def test_skill_uses_the_current_ai_api_positioning_and_direct_runtime_boundary()
         in body_lower
     )
     assert "unsupported explicit contracts are rejected before serving" in body_lower
-    assert "Broader multi-operation deterministic execution remains planned" in body
+    assert "broader multi-operation deterministic execution" in body_lower
+    assert "historical v0.10.0 does not include" in body_lower
 
 
 def test_skill_documents_supported_request_declaration_shapes():
