@@ -35,6 +35,7 @@ def test_model_free_chain_contract_reaches_every_explanatory_surface(relative):
         "no general dependency graph or model-free multi-operation execution is supported",
         "Context and broader bounds are unsupported; the chain is agent-mediated, not model-free",
         "multi-operation direct paths remain planned",
+        "It has no context or broader bounds and remains agent-mediated, not model-free",
     ):
         assert stale not in text, (relative, stale)
 
