@@ -161,7 +161,7 @@ deterministic execution, or claim context budgeting.
 
 ### 0.11.0 boundary: sequential operation chains
 
-Current source adds agent-mediated sequential chains of two or more required `Exactly(1)` operations, provided exactly one operation is ready at every step.
+Version 0.11.0 added agent-mediated sequential chains of two or more required `Exactly(1)` operations, provided exactly one operation is ready at every step.
 `FromResult` injects fields from a predecessor's locally validated Pydantic result;
 `after` independently requires successful predecessor completion. Declaration order does
 not choose execution order. Operations use `FromRequest`, `FromResult`, supported immutable
@@ -184,17 +184,9 @@ uses real application-owned SQLite operations and persisted receipts, not a fram
 
 Version 0.11.0 completes this subset of milestone 2, not the broader milestone. Historical v0.10.0 does not include it.
 
-### Unreleased boundary: model-free resolved chains
+### 0.12.0 boundary: model-free resolved chains
 
-The current unreleased source also runs a uniquely ordered chain directly when a Pydantic
-request model and every operation argument are fully resolved by `FromRequest`, validated
-`FromResult`, or supported immutable callable defaults, with at least one request binding.
-The terminal output annotation must exactly match the endpoint response annotation. This
-reuses the private compiled chain order, invocation kernel, per-request ledger, receiving
-and output validation, absolute deadline, and canonical terminal response. No model is
-resolved or constructed and there is no fallback after a chain starts. Chains containing
-producer-backed `AgentChoice` remain agent-mediated; unsupported shapes remain rejected.
-This behavior is unreleased and is not part of published v0.11.0.
+From version 0.12.0, a Pydantic request endpoint executes a uniquely ordered chain of required `Exactly(1)` operations directly when the chain is fully resolved. The chain has at least two operations, exactly one required `Exactly(1)` operation is ready at each step, and every argument resolves through `FromRequest`, validated `FromResult`, or supported immutable callable defaults. At least one `FromRequest` binding is required. The terminal operation declares the endpoint's exact full response annotation, and its validated result is returned unchanged. No model is resolved or constructed, and there is no fallback after execution starts. Any `AgentChoice`, including producer-backed choices, keeps the chain agent-mediated. Unsupported shapes remain rejected. Historical v0.11.0 chains remain agent-mediated.
 
 ## Next milestones
 
@@ -243,9 +235,12 @@ maximum chain length:
 
 The first slice is deliberately bounded by its tested sequential acceptance cases. It does
 not claim a general graph executor, arbitrary parallelism, or arbitrary endpoint-wide
-transactionality. The chain is initially agent-mediated: Summonpot owns operation readiness,
+transactionality. Version 0.11.0 chains are agent-mediated: Summonpot owns readiness,
 argument binding, validation, and result transfer, while the agent may choose which ready
-operation to invoke. The broader model-free multi-operation compiler remains planned.
+operation to invoke. From 0.12.0, fully resolved uniquely ordered chains meeting the exact
+Pydantic request, `FromRequest`, immutable binding, and terminal response predicates above
+run model-free. Any `AgentChoice` keeps execution agent-mediated. The broader model-free
+multi-operation compiler remains planned.
 
 Failure semantics ship with the chain, not as a later write-adapter feature:
 
@@ -322,9 +317,7 @@ slices are stable:
 
 ### 6. Broader deterministic execution compiler
 
-Current unreleased source adds the resolved sequential-chain slice described above.
-The remaining compiler work below extends beyond that narrow slice; published v0.11.0
-still uses the agent runtime for all multi-operation chains.
+Version 0.12.0 adds the resolved sequential-chain slice described above. The remaining compiler work below extends beyond that narrow slice; historical v0.11.0 uses the agent runtime for all multi-operation chains.
 
 Select the least-powerful sufficient execution path for validated requests whose private
 plans contain more than the narrow walking skeleton:

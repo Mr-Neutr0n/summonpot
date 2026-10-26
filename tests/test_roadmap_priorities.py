@@ -112,6 +112,7 @@ def test_v090_boundary_records_the_completed_hardening_release():
         assert behavior in released_090
     assert "Matching raw `Runtime.call` input validation" not in shipped
     assert "### Unreleased / next release boundary" not in text
+    assert "### Unreleased boundary: model-free resolved chains" not in text
 
 
 def test_context_slices_require_their_actual_execution_prerequisites():

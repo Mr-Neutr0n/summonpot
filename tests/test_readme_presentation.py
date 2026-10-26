@@ -64,7 +64,7 @@ def test_readme_states_the_current_runtime_boundary_before_positioning():
         "single-operation `exactly(1)` path executes without resolving or constructing"
         in introduction
     )
-    assert "in current source (unreleased)" in introduction
+    assert "from version 0.12.0" in introduction
     assert "uniquely ordered required `exactly(1)` chains" in introduction
     assert "at least one `fromrequest` binding" in introduction
     assert "endpoint's exact full response annotation" in introduction

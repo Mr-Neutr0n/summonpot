@@ -69,10 +69,7 @@ clear error; serve the application or invoke its generated HTTP route instead.
 
 > [!IMPORTANT]
 > The supported single-operation `Exactly(1)` path executes without resolving or constructing
-> a model. In current source (unreleased), uniquely ordered required `Exactly(1)` chains also
-> run model-free when they use a Pydantic request, at least one `FromRequest` binding, only
-> `FromRequest`/`FromResult` bindings and supported immutable defaults, and the terminal
-> operation declares the endpoint's exact full response annotation. Chains with `AgentChoice()`
+> a model. From version 0.12.0, uniquely ordered required `Exactly(1)` chains of at least two operations run model-free only with a Pydantic request, at least one `FromRequest` binding, all arguments bound through `FromRequest`/`FromResult` or supported immutable defaults, and a terminal operation declaring the endpoint's exact full response annotation. Chains with `AgentChoice()`
 > remain agent-mediated, as do bare legacy capabilities. Unsupported explicit contract shapes
 > fail at registration. Broader graphs remain on the [roadmap](ROADMAP.md), not shipped behavior.
 
@@ -197,7 +194,7 @@ routing, and OpenAPI under Summonpot.
   response model. This path does not resolve, construct, or call a model.
 - **Sequential required-operation chains** with `Exactly(1)` bounds and unique readiness,
   bound by validated `FromRequest`/`FromResult` values and supported immutable defaults.
-  In current source (unreleased), eligible fully resolved chains execute without model resolution; chains with producer-backed
+  Included from version 0.12.0, eligible fully resolved chains execute without model resolution; chains with producer-backed
   `AgentChoice` remain agent-mediated. Both return the validated terminal operation result.
 - **Registration-time contract validation** that rejects missing sources, invalid result
   references, unsupported choices, and provably incompatible types before serving.

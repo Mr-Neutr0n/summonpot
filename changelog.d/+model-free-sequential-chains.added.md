@@ -1,1 +1,0 @@
-Adds model-free execution for fully resolved sequential required `Exactly(1)` chains. The runtime executes the immutable compiled order through the shared validated invocation kernel and returns the canonical terminal result; chains with producer-backed `AgentChoice` remain agent-mediated. The feature is unreleased and does not change the published v0.11.0 boundary.

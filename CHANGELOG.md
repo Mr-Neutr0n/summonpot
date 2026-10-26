@@ -10,6 +10,13 @@ release assembles them here — run `make changelog-draft` to preview them.
 
 <!-- towncrier release notes start -->
 
+## [0.12.0] - 2026-10-25
+
+### Added
+
+- Add model-free execution for fully resolved sequential required `Exactly(1)` chains with a Pydantic request, at least one `FromRequest` binding, uniquely ordered readiness, only supported `FromRequest`/`FromResult` sources or immutable callable defaults, and an exact full terminal response annotation. Return the validated canonical terminal result without resolving or constructing a model. Any `AgentChoice` keeps the chain agent-mediated; historical v0.11.0 chains remain agent-mediated.
+
+
 ## [0.11.0] - 2026-10-22
 
 ### Added

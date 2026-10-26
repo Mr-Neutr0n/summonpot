@@ -14,9 +14,9 @@ binding and all arguments resolve through request/result bindings or supported i
 defaults. Chains with producer-backed `AgentChoice` remain agent-mediated. Bare legacy
 capabilities still use the provider-neutral agent runtime. Unsupported explicit contracts
 are rejected before serving. Version 0.11.0 supports sequential chains with exactly one
-ready operation at each step; that release's chains are agent-mediated. The model-free chain
-path is unreleased; broader multi-operation deterministic execution and graph execution
-remain planned. Historical v0.10.0 does not include the 0.11.0 agent-mediated chain either.
+ready operation at each step; that release's chains are agent-mediated. From version 0.12.0, fully resolved uniquely ordered chains run model-free; chains with
+agent-owned choices remain agent-mediated. Broader multi-operation deterministic execution
+and graph execution remain planned. Historical v0.10.0 does not include the 0.11.0 agent-mediated chain either.
 The framework
 owns execution, including any agent loop. **The ellipsis is a complete declaration body**,
 not an implementation waiting to be written. Calling the decorated declaration directly is
@@ -176,8 +176,12 @@ The argument sources mean:
 
 `FromResult` and `after` are enforced in a sequential chain of two or more operations from 0.11.0, provided exactly one operation is ready at each step. Such a chain may also use `AgentChoice(from_result=producer)` to choose from a producer's locally validated list of concrete Pydantic models.
 `FromResult` itself establishes producer readiness; `after` independently requires
-successful predecessor completion. Fully resolved chains run model-free in unreleased
-source; chains with a producer-backed `AgentChoice` remain agent-mediated. Their unique terminal operation's full output
+successful predecessor completion. From version 0.12.0, fully resolved chains run model-free only with a Pydantic request,
+at least one `FromRequest` binding, a unique required `Exactly(1)` sequence, only
+`FromRequest`/`FromResult` bindings or supported immutable callable defaults, and the
+terminal operation's exact full endpoint response annotation. Its validated terminal result
+is returned unchanged. Any `AgentChoice` remains agent-mediated. Historical v0.11.0 chains
+remain agent-mediated. Their unique terminal operation's full output
 annotation must exactly equal the endpoint response annotation. Summonpot returns the
 canonical validated terminal result, not model-authored claims. Intermediate canonical
 results stay hidden from the model. Tool results are completion acknowledgments;
