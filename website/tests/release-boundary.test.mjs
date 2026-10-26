@@ -6,11 +6,14 @@ for (const [name, path] of [
   ['homepage', '../dist/index.html'],
   ['operation reference', '../dist/reference/operations/index.html'],
 ]) {
-  test(`${name} states the 0.11.0 chain boundary without stale publication claims`, async () => {
+  test(`${name} states the 0.11.0 and 0.12.0 chain boundaries`, async () => {
     const html = await readFile(new URL(path, import.meta.url), 'utf8');
     assert.match(html, /0\.11\.0/);
+    assert.match(html, /0\.12\.0/);
+    assert.match(html, /fully resolved/);
     assert.doesNotMatch(html, /not yet published|Unreleased source/);
     assert.match(html, /agent-mediated/);
+    assert.match(html, /model-free/);
     assert.match(html, /128/);
     assert.match(html, /65,536/);
   });

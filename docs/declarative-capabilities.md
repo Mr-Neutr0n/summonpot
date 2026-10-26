@@ -97,7 +97,7 @@ Version 0.11.0 also admits a sequential chain of required `Exactly(1)` operation
 with exactly one ready operation at each step, without a two-operation ceiling,
 connected by `FromResult` or `after`. Bound result fields are read only after local producer
 validation, and the response is the canonical result of the unique terminal operation whose
-full output annotation exactly matches the endpoint. The chain remains agent-mediated;
+full output annotation exactly matches the endpoint. Version 0.11.0 chains are agent-mediated;
 canonical results stay outside model context. Within a chain, `AgentChoice(from_result=producer)`
 selects from a producer's validated `list[ConcreteModel]`, projecting inert descriptions and
 opaque request-local tokens rather than canonical objects or full result context. The chosen
@@ -133,6 +133,13 @@ at least one argument is bound from `FromRequest`, every remaining argument come
 `FromRequest` or an immutable identity-stable callable default, and its declared output is
 the endpoint output model by exact identity, the runtime executes that operation directly
 before model resolution. There is no model fallback after direct execution starts.
+From 0.12.0, the same Pydantic request and at-least-one-`FromRequest` requirements also
+permit model-free chains of two or more required `Exactly(1)` operations with exactly one
+ready operation at every step. All arguments must resolve through `FromRequest`, locally
+validated `FromResult`, or supported immutable defaults, and the terminal operation must
+declare the endpoint's exact full response annotation. Its canonical validated result is
+returned. `after` supplies independent success ordering. Any `AgentChoice` keeps a chain
+agent-mediated; broader graphs remain unsupported.
 A direct `AgentChoice` in the admitted shape uses the provider-neutral agent loop. An
 unsupported explicit declaration fails before serving; bare callable dependencies keep their
 legacy agent behavior. `Operation(fn)` is still an explicit contract and is rejected because

@@ -52,5 +52,5 @@ def test_source_guidance_includes_direct_executor_review_rules():
     )
 
     assert "direct-execution predicate" in guidance
-    assert "one permitted start per request" in guidance
+    assert "one permitted start per operation per request" in guidance
     assert "exactly-once completion" in guidance

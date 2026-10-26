@@ -52,7 +52,11 @@ the one breaking change in 0.3.0 that surfaces under traffic rather than at impo
 **Keep the direct-execution predicate exact.** The shipped direct path requires a Pydantic
 request model, one required `Exactly(1)` operation, at least one `FromRequest` binding, only
 `FromRequest` or supported immutable callable defaults, and exact operation-output identity
-with the endpoint response model. Preserve one permitted start per request before application
+with the endpoint response model. From 0.12.0, model-free execution also covers uniquely
+ordered chains of two or more required `Exactly(1)` operations with the same Pydantic request
+and at-least-one-`FromRequest` requirements, only `FromRequest`/`FromResult` bindings or
+supported immutable defaults, and an exact full terminal-response annotation. Any
+`AgentChoice` remains agent-mediated. Preserve one permitted start per operation per request before application
 code. Never describe that local reservation as exactly-once completion, distributed
 deduplication, rollback, or cancellation.
 

@@ -22,7 +22,7 @@ The overview diagram introduces the shared endpoint paths. This focused producer
 
 ## Validated producer-choice chain
 
-The [runnable producer-choice inventory example](https://github.com/tugrulguner/summonpot/blob/main/examples/12_producer_choice/README.md) shows the narrower runtime/application boundary. The model sees bounded inert candidate evidence and opaque tokens, never canonical objects. Summonpot verifies request-local token membership and binds the exact validated candidate. The application operation checks live stock and revision, then owns the SQLite transaction, order persistence, and idempotency. Local validation returns the canonical terminal receipt. The chain remains agent-mediated even without `AgentChoice`.
+The [runnable producer-choice inventory example](https://github.com/tugrulguner/summonpot/blob/main/examples/12_producer_choice/README.md) shows the narrower runtime/application boundary. The model sees bounded inert candidate evidence and opaque tokens, never canonical objects. Summonpot verifies request-local token membership and binds the exact validated candidate. The application operation checks live stock and revision, then owns the SQLite transaction, order persistence, and idempotency. Local validation returns the canonical terminal receipt. This producer-choice chain remains agent-mediated.
 
 <figure class="supporting-diagram producer-choice-diagram">
   <a href="/diagrams/validated-producer-choice.png?v=0.11.0" target="_blank" rel="noreferrer" aria-label="Open the full-size validated producer-choice chain diagram">
@@ -73,4 +73,13 @@ Agent-backed final output is parsed/validated against the endpoint response sche
 - A permitted start is not successful completion, transaction rollback, distributed idempotency, or exactly-once execution.
 - Test-model execution can invoke real capability code.
 
-For source-level value-transfer/security details, read [`docs/declarative-capabilities.md`](https://github.com/tugrulguner/summonpot/blob/main/docs/declarative-capabilities.md). Multi-operation graphs, result/context injection, `after` ordering, and broad deterministic compilation remain planned; do not project them onto the current executor.
+From 0.12.0, model-free execution also traverses the compiled order of a uniquely ready chain of
+two or more required `Exactly(1)` operations. Eligibility requires a Pydantic request, at
+least one `FromRequest` binding, only `FromRequest`/`FromResult` bindings or supported
+immutable defaults, and the terminal operation's exact full endpoint response annotation.
+The shared invocation kernel enforces readiness, `after`, receiving constraints, validated
+results, and reserved starts. The canonical terminal result is returned without model
+construction or fallback. Any `AgentChoice` keeps the chain agent-mediated; historical
+v0.11.0 chains remain agent-mediated.
+
+For source-level value-transfer/security details, read [`docs/declarative-capabilities.md`](https://github.com/tugrulguner/summonpot/blob/main/docs/declarative-capabilities.md). `FromContext`, broader graphs and bounds, and broader deterministic compilation remain planned.

@@ -127,7 +127,7 @@ def test_skill_documents_sequential_chain_authority_and_version_boundary():
     assert "exactly one operation is ready at each step" in body
     assert "unique terminal operation's full output annotation" in body
     assert "canonical validated terminal result, not model-authored claims" in body
-    assert "Fully resolved chains run model-free in unreleased source" in body
+    assert "From version 0.12.0, fully resolved chains run model-free only" in body
     assert "producer-backed `AgentChoice` remain agent-mediated" in body
     assert "Tool results are completion acknowledgments" in body
     assert "separately disclose bounded inert candidate evidence" in body
