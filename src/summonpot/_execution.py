@@ -179,6 +179,7 @@ class _CompiledEndpoint:
     tools: tuple[_CompiledTool, ...]
     direct_tool: int | None
     response_producer: int | None = None
+    direct_chain_order: tuple[int, ...] | None = None
 
 
 _REGISTERED_PLANS: dict[int, tuple[ReferenceType[EndpointDef], _CompiledEndpoint]] = {}
@@ -1093,6 +1094,11 @@ def _compile_endpoint(
         )
         for index, tool in enumerate(source_tools)
     )
+    direct_chain_order = (
+        _direct_chain_order(endpoint, source_tools, chain_indices)
+        if allow_direct and chain_indices is not None
+        else None
+    )
     input_adapter, input_field_names = _compile_input_adapter(endpoint)
     prompt_schema, prompt_definitions = _compile_projection_contract(
         input_adapter.core_schema
@@ -1123,7 +1129,29 @@ def _compile_endpoint(
         tools=tools,
         direct_tool=direct_index,
         response_producer=(chain_indices[-1] if chain_indices else None),
+        direct_chain_order=direct_chain_order,
     )
+
+
+def _direct_chain_order(
+    endpoint: EndpointDef,
+    tools: Sequence[ToolDef],
+    order: tuple[int, ...],
+) -> tuple[int, ...] | None:
+    """Admit only fully application-bound chains with no unresolved choices."""
+    if endpoint.input_model is None:
+        return None
+    saw_request_binding = False
+    for index in order:
+        contract = tools[index].contract
+        if contract is None or contract.bind is None:
+            return None
+        for source in contract.bind.values():
+            if type(source) is FromRequest:
+                saw_request_binding = True
+            elif type(source) is not FromResult:
+                return None
+    return order if saw_request_binding else None
 
 
 def _compile_input_adapter(

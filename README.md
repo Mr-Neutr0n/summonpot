@@ -47,8 +47,8 @@ The overview above remains the framework map. This supporting diagram traces the
 [producer-choice inventory example](examples/12_producer_choice/README.md): bounded candidate
 evidence reaches the model with opaque tokens, Summonpot verifies token membership and binds
 the exact canonical candidate, and the application-owned operation checks live stock and
-revision before committing its typed receipt. The chain remains agent-mediated, even without
-an `AgentChoice`; the application owns transactions and idempotency.
+revision before committing its typed receipt. This producer-choice chain remains
+agent-mediated; the application owns transactions and idempotency.
 
 <a href="docs/assets/validated-producer-choice.png"><img src="docs/assets/validated-producer-choice.png" width="960" height="600" alt="Four-step validated producer choice: the application returns bounded in-stock candidate records; Summonpot shows inert descriptions and opaque tokens to the model; the agent selects a token that Summonpot verifies and binds to the exact canonical candidate; the application operation checks stock and revision in SQLite, commits an order and returns its locally validated receipt. Summonpot verifies token membership, but the model does not receive canonical objects. The chain remains agent-mediated; application code owns transactions and idempotency." /></a>
 
@@ -68,13 +68,13 @@ enforcement, and structured output. Calling a registered declaration directly ra
 clear error; serve the application or invoke its generated HTTP route instead.
 
 > [!IMPORTANT]
-> One fully resolved `Exactly(1)` operation path now executes directly without resolving
-> or constructing a model. Bare legacy capabilities still use Summonpot's provider-neutral
-> agent runtime. Within the runtime-enforced binding slice, the agent controls only explicit
-> `AgentChoice()` arguments. Unsupported explicit contract shapes fail at registration
-> instead of falling back to unenforced model-supplied arguments.
-> Broader multi-operation deterministic execution remains on the
-> [roadmap](ROADMAP.md), not shipped behavior.
+> The supported single-operation `Exactly(1)` path executes without resolving or constructing
+> a model. In current source (unreleased), uniquely ordered required `Exactly(1)` chains also
+> run model-free when they use a Pydantic request, at least one `FromRequest` binding, only
+> `FromRequest`/`FromResult` bindings and supported immutable defaults, and the terminal
+> operation declares the endpoint's exact full response annotation. Chains with `AgentChoice()`
+> remain agent-mediated, as do bare legacy capabilities. Unsupported explicit contract shapes
+> fail at registration. Broader graphs remain on the [roadmap](ROADMAP.md), not shipped behavior.
 
 ## Why summonpot?
 
@@ -195,11 +195,10 @@ routing, and OpenAPI under Summonpot.
   uses a Pydantic request model and has at least one `FromRequest` binding; every remaining argument comes from `FromRequest`
   or an immutable identity-stable callable default, and its output is exactly the endpoint
   response model. This path does not resolve, construct, or call a model.
-- **Typed `Operation` contracts** for the admitted single-operation slice and uniquely
-  ordered sequential required-operation chains. Chains enforce `FromResult` and `after`,
-  return the canonical terminal result, and support producer-backed choices from validated
-  `list[ConcreteModel]` results. Chains remain agent-mediated; unsupported explicit shapes
-  are rejected at registration.
+- **Sequential required-operation chains** with `Exactly(1)` bounds and unique readiness,
+  bound by validated `FromRequest`/`FromResult` values and supported immutable defaults.
+  In current source (unreleased), eligible fully resolved chains execute without model resolution; chains with producer-backed
+  `AgentChoice` remain agent-mediated. Both return the validated terminal operation result.
 - **Registration-time contract validation** that rejects missing sources, invalid result
   references, unsupported choices, and provably incompatible types before serving.
 - **Provider-neutral model selection** for OpenAI, Anthropic, Google, Groq, Mistral,

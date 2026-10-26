@@ -14,6 +14,7 @@ from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
 
 from summonpot import Exactly, FromRequest, FromResult, Operation, Required, Summon
+from summonpot._execution import _register_endpoint
 from summonpot.runtime import Runtime, _OperationExecutionError, _OperationOutputError
 from summonpot.server import build_app
 
@@ -106,6 +107,8 @@ def operation_model(
 
 
 def run(app, model, key="sample", *, retries=2):
+    # These historical tests explicitly exercise the agent-mediated compatibility path.
+    _register_endpoint(app.endpoints[0], allow_direct=False)
     return asyncio.run(
         Runtime(model=model, retries=retries).call(app.endpoints[0], {"key": key})
     )
@@ -300,6 +303,25 @@ def test_early_final_output_retries_without_replaying_completed_steps():
     events = []
     app = three_step_app(events)
     result = run(app, operation_model(events, early_final_turns=1), retries=3)
+    assert result == Receipt(value="enriched:sample", saved=True)
+    assert events == [
+        ("load", "sample"),
+        ("enrich", "sample"),
+        ("save", "enriched:sample"),
+    ]
+
+
+def test_fully_bound_sequential_chain_executes_without_resolving_a_model():
+    events = []
+    app = three_step_app(events, declaration_order=(2, 0, 1))
+    runtime = Runtime(model="unconfigured:no-provider")
+
+    def model_must_not_be_resolved(endpoint):
+        raise AssertionError("model resolution is forbidden for this chain")
+
+    runtime.model_for = model_must_not_be_resolved
+    result = asyncio.run(runtime.call(app.endpoints[0], {"key": "sample"}))
+
     assert result == Receipt(value="enriched:sample", saved=True)
     assert events == [
         ("load", "sample"),

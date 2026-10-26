@@ -61,16 +61,16 @@ def test_readme_states_the_current_runtime_boundary_before_positioning():
     introduction = _normalize(readme.split("## Why summonpot?", 1)[0])
 
     assert (
-        "one fully resolved `exactly(1)` operation path now executes directly without "
-        "resolving or constructing a model" in introduction
+        "single-operation `exactly(1)` path executes without resolving or constructing"
+        in introduction
     )
-    assert "bare legacy capabilities still use" in introduction
-    assert "within the runtime-enforced binding slice" in introduction
+    assert "in current source (unreleased)" in introduction
+    assert "uniquely ordered required `exactly(1)` chains" in introduction
+    assert "at least one `fromrequest` binding" in introduction
+    assert "endpoint's exact full response annotation" in introduction
+    assert "remain agent-mediated, as do bare legacy capabilities" in introduction
     assert "unsupported explicit contract shapes fail at registration" in introduction
-    assert (
-        "broader multi-operation deterministic execution remains on the "
-        "[roadmap](roadmap.md)" in introduction
-    )
+    assert "broader graphs remain on the [roadmap](roadmap.md)" in introduction
 
 
 def test_readme_shows_deterministic_and_agentic_endpoints_in_one_code_block():

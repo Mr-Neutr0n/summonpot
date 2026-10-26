@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
 
+from summonpot._execution import _register_endpoint
 from summonpot.runtime import Runtime
 from summonpot.server import build_app
 
@@ -38,6 +39,8 @@ def make_model(*, fail_after_persist: bool = False) -> FunctionModel:
 
 
 def setup_db(tmp_path: Path) -> Path:
+    # This module checks failure after MODEL completion, not direct-chain completion.
+    _register_endpoint(inventory_app.summon.endpoints[0], allow_direct=False)
     path = tmp_path / "inventory.sqlite3"
     inventory_app.DB_PATH = path
     inventory_app.initialize_database()

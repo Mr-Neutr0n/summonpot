@@ -13,7 +13,7 @@ from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
 
 from summonpot import Exactly, FromRequest, FromResult, Operation, Required, Summon
-from summonpot._execution import _new_run, _prepare_request
+from summonpot._execution import _new_run, _prepare_request, _register_endpoint
 from summonpot.runtime import (
     Runtime,
     _invoke_bound_operation,
@@ -58,6 +58,8 @@ def app_for(events, *, invalid_producer=False, invalid_terminal=False):
         """Run the validated chain."""
         ...
 
+    # Preserve adversarial agent-loop coverage now that fully bound chains go direct.
+    _register_endpoint(app.endpoints[0], allow_direct=False)
     return app
 
 

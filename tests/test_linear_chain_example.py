@@ -7,6 +7,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
@@ -38,18 +39,18 @@ def scripted_model() -> FunctionModel:
     return FunctionModel(respond)
 
 
-def prepare(tmp_path: Path) -> Path:
+def prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     path = tmp_path / "inventory.sqlite3"
-    linear_app.DB_PATH = path
+    monkeypatch.setenv("INVENTORY_DB", str(path))
     linear_app.initialize_database()
     linear_app.summon._runtime = Runtime(model=scripted_model())
     return path
 
 
 def test_http_receipt_is_persisted_and_repeated_request_is_idempotent(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch
 ) -> None:
-    path = prepare(tmp_path)
+    path = prepare(tmp_path, monkeypatch)
     payload = {"sku": "notebook", "quantity": 3, "idempotency_key": "linear-order-1"}
     with TestClient(build_app(linear_app.summon)) as client:
         first = client.post("/reservations", json=payload)
@@ -76,9 +77,9 @@ def test_http_receipt_is_persisted_and_repeated_request_is_idempotent(
 
 
 def test_receipt_read_failure_after_commit_preserves_single_reservation(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch
 ) -> None:
-    path = prepare(tmp_path)
+    path = prepare(tmp_path, monkeypatch)
     starts = []
 
     def fail_read(idempotency_key: str):
