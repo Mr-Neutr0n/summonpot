@@ -124,4 +124,12 @@ The runtime reserves the permitted operation start before invoking application c
 - Mutable/custom callable defaults do not qualify. Supported immutable exact built-ins are `None`, `bool`, `int`, `float`, `complex`, `str`, `bytes`, and recursively composed tuples/frozensets of those exact values.
 - Bare legacy `Depends(fn)` / `Required(fn)` callables keep their agent-backed behavior; their presence does not prove deterministic direct execution.
 
-For a semantic choice, see [Build an agent-backed bound operation](/build/agent-choice/). For runtime mechanics and error handling, see [Execution internals](/internals/execution/). The broader multi-operation deterministic compiler, operation result/context binding (`FromResult`, `FromContext`), and `after` dependency graph remain planned, not executable shipped features.
+From 0.12.0, model-free execution also supports uniquely ordered chains of two or more
+required `Exactly(1)` operations with a Pydantic request, at least one `FromRequest` binding,
+only `FromRequest`/`FromResult` sources or supported immutable defaults, and a terminal
+operation declaring the endpoint's exact full response annotation. `FromResult` transfers
+locally validated results; `after` enforces independent success ordering. The canonical
+terminal result is returned. Any `AgentChoice` remains agent-mediated; historical v0.11.0
+chains remain agent-mediated. See the [three-step SQLite example](https://github.com/tugrulguner/summonpot/blob/main/examples/11_linear_result_chain/README.md).
+
+For a semantic choice, see [Build an agent-backed bound operation](/build/agent-choice/). For runtime mechanics and error handling, see [Execution internals](/internals/execution/). `FromContext`, broader graphs and bounds, and broader deterministic compilation remain planned.

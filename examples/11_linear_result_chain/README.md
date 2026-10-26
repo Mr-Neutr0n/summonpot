@@ -6,8 +6,8 @@ The write checks the snapshot revision under a SQLite write transaction, rejects
 
 ## Run
 
-This model-free path is unreleased; published v0.11.0 still runs these chains through the
-agent runtime. From the current source checkout, use the locked environment and serving
+This model-free path is included from 0.12.0; historical v0.11.0 runs these chains through
+the agent runtime. From the repository checkout, use the locked environment and serving
 and CLI extras (Python 3.13 shown):
 
 ```sh

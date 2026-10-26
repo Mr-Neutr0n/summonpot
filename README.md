@@ -444,9 +444,10 @@ subclass, and Python's numeric widening permits `int` or `bool` to feed `float`.
 > connected by `FromResult` or `after`, with producer-backed choices from `list[ConcreteModel]`
 > outputs. Choices use bounded opaque tokens mapped to canonical validated members; empty or
 > oversized sets fail with a fixed redacted 409 before model decision or downstream work.
-> That chain remains agent-mediated and returns the unique terminal operation's canonical
-> validated result. `FromContext`, broader call
-> bounds and graphs, and multi-operation direct paths remain planned. Binding sources must be
+> Chains with choices remain agent-mediated; eligible fully resolved chains run model-free
+> from 0.12.0 under the exact predicate above. Both return the unique terminal operation's
+> canonical validated result. `FromContext`, broader call bounds and graphs, and broader
+> deterministic compilation remain planned. Binding sources must be
 > exact built-in vocabulary types; user-defined subclasses are rejected too. Bare callable
 > dependencies without an explicit `Operation` contract remain compatible. `Operation(fn)`
 > is still an explicit contract, so it is rejected unless the declaration supplies the
@@ -469,7 +470,10 @@ must declare the exact endpoint response annotation. Summonpot returns that oper
 validated result; the model cannot invent a receipt. Canonical intermediate results stay
 outside model context.
 
-This slice is agent-mediated, including chains without an agent-owned argument; it is not model-free. Starts remain reserved after failure or
+Version 0.11.0 runs every supported chain through the agent runtime. From 0.12.0, fully
+resolved chains meeting the Pydantic-request, request-binding, immutable-source, unique-order,
+and exact terminal-response predicates above execute without a model. Any `AgentChoice`
+keeps its chain agent-mediated. Starts remain reserved after failure or
 uncertain timeout; model retries cannot replay effects. Applications own cross-request
 idempotency and transactions. See the runnable [three-step SQLite inventory reservation example](examples/11_linear_result_chain/README.md)
 and the [producer-constrained inventory choice example](examples/12_producer_choice/README.md)
@@ -487,9 +491,9 @@ Pydantic request validation + OpenAPI contract
     v
 Runtime.call(...)
     |
-    +---- one fully resolved Exactly(1) operation
+    +---- eligible fully resolved Exactly(1) operation or sequential chain
     |          |
-    |          +---- execute directly; validate declared output
+    |          +---- execute directly; validate each output; return canonical result
     |
     +---- otherwise: configured provider-neutral model
                |
@@ -537,11 +541,12 @@ Summonpot chooses its current execution path without adding a second endpoint AP
 |---|---|
 | Pydantic request model, one required `Exactly(1)` operation, at least one `FromRequest` binding, only `FromRequest` or immutable identity-stable defaults, exact response-model output | Execute directly without a model |
 | A direct `AgentChoice` remains in the admitted single-operation shape | Use the agent runtime with the enforced operation contract |
-| Supported sequential chain of required `Exactly(1)` operations (from 0.11.0) | Agent-mediated readiness and result binding; return the canonical terminal result |
+| Eligible fully resolved sequential chain meeting every 0.12.0 predicate above | Model-free sequential execution; return the canonical terminal result |
+| Supported sequential chain with producer-backed `AgentChoice` | Agent-mediated readiness and result binding; return the canonical terminal result |
 | Bare callable capabilities with implicit marker bounds | Use the legacy agent runtime |
 | Unsupported explicit binding, ordering, bound, output, or multi-operation shape | Reject during registration |
 
-Broader graph execution, multi-operation deterministic execution, SQLAlchemy/SQLite operation adapters, write receipts, streaming, and built-in authentication are **planned, not shipped**. See
+Broader graph execution and deterministic compilation beyond the supported sequential slice, SQLAlchemy/SQLite operation adapters, write receipts, streaming, and built-in authentication are **planned, not shipped**. See
 [ROADMAP.md](ROADMAP.md) for the design boundaries and implementation order.
 
 
