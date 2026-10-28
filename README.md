@@ -489,6 +489,9 @@ Use `Summon(context=authenticate)` to register a plain sync or async function ta
 HTTP request and returning its annotated Pydantic principal. The model must have
 `ConfigDict(frozen=True, extra="forbid")`; fields are exact immutable `str`, `bytes`,
 `bool`, `int`, finite `float`, `None`, or typed tuples/frozensets of those values.
+Admission inspects the provider's canonical values without copying or coercing them.
+Principal validation hooks, custom initializers/post-init hooks, and transforming model
+configurations are rejected at registration; normalize identity in the authenticator instead.
 `FromContext("tenant_id")` names a canonical principal field, not a client header, JSON
 field, model argument, or alias. The application verifies credentials and supplies identity;
 Summonpot does not implement login or infer authorization from an identifier.

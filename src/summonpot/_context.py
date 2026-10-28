@@ -13,10 +13,9 @@ from dataclasses import dataclass, field
 from types import MappingProxyType, UnionType
 from typing import Annotated, Any, Literal, Union, get_args, get_origin
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel
 
 from summonpot._annotations import safe_get_type_hints
-from summonpot._output_validation import _compile_output_validator
 
 
 class AuthenticationError(PermissionError):
@@ -106,10 +105,14 @@ def _compile_context(provider: Any) -> _CompiledContext | None:
         raise TypeError(
             "Context fields must use supported immutable scalar or tuple/frozenset types."
         )
+    # Context admission must inspect the provider's canonical values, not replay
+    # validators that could transform an already authenticated tenant identity.
+    from summonpot._execution import _compile_receiving_validator
+
     return _CompiledContext(
         provider,
         model,
-        _compile_output_validator(TypeAdapter(model)),
+        _compile_receiving_validator(model),
         MappingProxyType(fields),
     )
 
@@ -140,8 +143,9 @@ async def _resolve_context(
     if type(supplied) is not spec.model:
         raise _ContextError()
     try:
-        validated = spec.validator.validate_python(supplied)
-        storage = BaseModel.__dict__["__dict__"].__get__(validated, type(validated))
+        if not spec.validator.accepts(supplied):
+            raise _ContextError()
+        storage = BaseModel.__dict__["__dict__"].__get__(supplied, type(supplied))
         if type(storage) is not dict or any(type(key) is not str for key in storage):
             raise _ContextError()
         values = {name: dict.__getitem__(storage, name) for name in spec.fields}

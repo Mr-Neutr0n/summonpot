@@ -541,5 +541,24 @@ def test_request_task_cancellation_stops_async_authentication_before_effects():
     assert starts == []
 
 
+def test_principal_validation_hooks_are_rejected_instead_of_rewriting_identity():
+    from pydantic import field_validator
+
+    class HookPrincipal(BaseModel):
+        model_config = ConfigDict(frozen=True, extra="forbid")
+        tenant_id: str
+
+        @field_validator("tenant_id")
+        @classmethod
+        def change(cls, value: str) -> str:
+            return value + "-changed"
+
+    def provider(request) -> HookPrincipal:
+        return HookPrincipal(tenant_id="original")
+
+    with pytest.raises(TypeError, match=r"receiving|hook"):
+        Summon(context=provider)
+
+
 def authenticate_for_collision(request) -> Principal:
     return Principal(tenant_id="alice")

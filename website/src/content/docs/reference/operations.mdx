@@ -111,3 +111,7 @@ The current source admits `FromContext` only for a single required operation wit
 
 The provider executes anew for each HTTP request inside `Runtime.timeout`, before operations and model resolution. Authentication denial yields a fixed 401; unexpected provider/invalid principal failures yield fixed redacted 500 responses. Context values are not implicitly added to model inputs. Request JSON is not authority. Raw `Runtime.call(..., context=principal)` is a trusted application entry point only. This feature does not implement login, credential policy, operation authorization, or tenant-scoped data access; the application must perform all of those.
 The framework does not insert the context object or its values into model instructions, request prompts, schemas, or error responses. This is not a guarantee that a value is secret if application code discloses it: operation outputs may intentionally be returned to the model on the existing single-operation agent path, and that disclosure remains the application's responsibility. FastAPI transport validation occurs before the provider; provider execution is within `Runtime.timeout`. `PermissionError` maps to 401 only when raised by the context provider; an operation's `PermissionError` is an application failure (500).
+
+Principal admission is a non-transforming structural predicate over the authenticator's
+canonical values. Validation hooks, custom initialization/post-init hooks, and transforming
+model configurations fail registration rather than being replayed to change identity.
