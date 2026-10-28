@@ -306,6 +306,7 @@ def validate_contracts(
     tools: list[Any],
     input_model: type[BaseModel] | None,
     parameters: list[Any],
+    context_fields: Mapping[str, Any] | None = None,
 ) -> None:
     """Check every declared contract on one endpoint.
 
@@ -347,6 +348,24 @@ def validate_contracts(
             argument_types=_argument_annotations(tool),
             request_types=_request_annotations(input_model, parameters),
         )
+        for argument, source in contract.bind.items():
+            if type(source) is FromContext:
+                if context_fields is None:
+                    raise TypeError(
+                        "FromContext requires an application context provider."
+                    )
+                if type(source.key) is not str or source.key not in context_fields:
+                    raise TypeError(
+                        "FromContext must name a declared canonical context field."
+                    )
+                _require_compatible(
+                    endpoint=endpoint,
+                    operation=tool.name,
+                    argument=argument,
+                    wanted=_argument_annotations(tool).get(argument),
+                    supplied=context_fields[source.key],
+                    origin="the declared application context field",
+                )
 
     _validate_runtime_admission(
         endpoint=endpoint,
@@ -373,7 +392,7 @@ def _enforced_contract_tool_index(tools: Sequence[Any]) -> int | None:
     ):
         return None
     if not all(
-        isinstance(source, FromRequest)
+        isinstance(source, (FromRequest, FromContext))
         or (isinstance(source, AgentChoice) and source.from_result is None)
         for source in contract.bind.values()
     ):
@@ -399,7 +418,7 @@ def _chain_contract_tool_indices(tools: Sequence[Any]) -> tuple[int, ...] | None
         ):
             return None
         if not all(
-            type(source) in (FromRequest, FromResult)
+            type(source) in (FromRequest, FromResult, FromContext)
             or (type(source) is AgentChoice and source.from_result is not None)
             for source in contract.bind.values()
         ):

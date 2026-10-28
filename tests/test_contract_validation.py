@@ -196,10 +196,10 @@ def test_direct_agent_choice_is_accepted_by_the_enforced_slice():
     assert summon.endpoints[0].tools[0].contract is not None
 
 
-def test_from_context_is_rejected_until_context_injection_ships():
+def test_from_context_is_rejected_without_an_application_provider():
     summon = Summon("svc")
 
-    with pytest.raises(TypeError, match="explicit contract unenforced"):
+    with pytest.raises(TypeError, match="application context provider"):
 
         @summon("/orders")
         def create_order(

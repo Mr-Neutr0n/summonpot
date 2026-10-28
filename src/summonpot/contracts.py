@@ -7,7 +7,8 @@ path a computable property rather than a guess.
 This module is declaration vocabulary. Registration validates every contract before
 serving. The runtime currently enforces one required ``Exactly(1)`` operation and a uniquely
 ordered sequential chain. Producer-backed choices are supported only in those chains;
-context injection and broader graph execution remain later work.
+authenticated context injection is supported in unreleased source for those shapes.
+Broader graph execution remains later work.
 """
 
 from __future__ import annotations
@@ -49,7 +50,11 @@ class FromResult(ArgumentSource):
 
 @dataclass(frozen=True)
 class FromContext(ArgumentSource):
-    """Take the value from framework-owned state rather than from the caller."""
+    """Take a canonical field from application-authenticated request-local state.
+
+    Requires a typed ``Summon(context=authenticate)`` provider. Context is never
+    obtained from the request body's fields or the model's tool arguments.
+    """
 
     key: str
 
@@ -64,8 +69,8 @@ class AgentChoice(ArgumentSource):
     In sequential chains, ``AgentChoice(from_result=producer)`` instead selects one
     member of that producer's locally validated list of concrete Pydantic models. The
     model sees only opaque per-request tokens and inert projected descriptions; local
-    membership uses token identity, never Python equality. Context bindings remain
-    planned.
+    membership uses token identity, never Python equality. Authenticated context
+    bindings are framework-owned and hidden from model arguments.
 
     This is a claim about one argument, not about an endpoint. An endpoint whose every
     argument is bound may still need a model — for an unresolved ordering, a choice

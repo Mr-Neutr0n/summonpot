@@ -19,6 +19,7 @@ from summonpot._annotations import (
     safe_get_type_hints,
     type_name,
 )
+from summonpot._context import _compile_context
 from summonpot._execution import _register_endpoint
 from summonpot._validation import validate_contracts
 from summonpot.dependencies import Dependency
@@ -82,6 +83,7 @@ class Summon:
         *,
         model: str | None = None,
         runtime: Runtime | None = None,
+        context: Callable[..., Any] | None = None,
     ) -> None:
         """Create a Summon application.
 
@@ -93,6 +95,13 @@ class Summon:
                 may spend, via ``Runtime(usage_limits=..., timeout=...)``. A runtime
                 already carries its own model, so this is mutually exclusive with
                 ``model``.
+            context: Application authentication function taking one HTTP request
+                and returning its annotated frozen, closed Pydantic principal.
+                Every declared endpoint then requires an authenticated context, including
+                endpoints without an explicit ``FromContext`` binding. Raise
+                ``PermissionError`` to deny authentication. This does not add a
+                login system or infer identity from request data; documentation
+                and OpenAPI routes are not protected by this hook.
         """
         if runtime is not None and model is not None:
             raise TypeError(
@@ -100,6 +109,7 @@ class Summon:
                 "runtime you supply instead."
             )
         self.name = name or "summonpot"
+        self._context = _compile_context(context)
         # Convert any raw functions to ToolDef objects
         self._tools: list = []
         if tools:
@@ -281,6 +291,9 @@ class Summon:
                 tools=endpoint_tools,
                 input_model=input_model,
                 parameters=parameters,
+                context_fields=self._context.fields
+                if self._context is not None
+                else None,
             )
             tool_names = [tool.name for tool in endpoint_tools]
             duplicate_names = sorted(
@@ -387,7 +400,7 @@ class Summon:
                 input_annotation=input_annotation,
                 output_annotation=output_annotation,
             )
-            _register_endpoint(endpoint)
+            _register_endpoint(endpoint, context=self._context)
             self._routes[route] = endpoint_name
             self._operation_ids[operation_id] = endpoint_name
             self._endpoints.append(endpoint)
@@ -428,7 +441,9 @@ class Summon:
             ``host`` defaults to ``0.0.0.0``, which accepts connections on every
             interface. That suits the container deployments summonpot targets, but
             it is wider than uvicorn's own ``127.0.0.1`` default. Endpoints carry no
-            authentication yet and each call spends provider credit, so anything
+            authentication unless an application context provider or external
+            authentication boundary is configured. Agent-backed calls spend
+            provider credit, so anything
             reachable from outside your network needs both a bound runtime
             (``Runtime(usage_limits=..., timeout=...)``) and authentication in front
             of it. Pass ``host="127.0.0.1"`` for local development.
