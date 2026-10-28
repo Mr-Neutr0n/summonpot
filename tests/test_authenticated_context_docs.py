@@ -43,3 +43,8 @@ def test_no_affected_surface_calls_context_globally_unsupported():
         text = path.read_text()
         assert "FromContext remains unsupported" not in text, path
         assert "`FromContext` remains unsupported" not in text, path
+        normalized = " ".join(text.split())
+        assert (
+            "direct unbounded chain choices, `FromContext`, broader graphs and bounds remain unsupported"
+            not in normalized
+        ), path

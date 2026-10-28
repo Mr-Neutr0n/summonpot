@@ -105,8 +105,9 @@ token maps to that exact canonical member; Python equality is not authority. Pro
 respects field exclusions and aliases without application serializers. Limits are 128
 candidates and 65,536 JSON characters per binding. Empty, unavailable, or oversized sets
 fail with a fixed redacted 409 before model decision and downstream work, with no extra model
-request. Primitive/untyped collections, direct unbounded chain choices, `FromContext`,
-broader graphs and bounds remain unsupported and rejected at registration. A multi-candidate
+request. Primitive/untyped collections, direct unbounded chain choices, context bindings
+outside the authenticated source slice below, and broader graphs and bounds remain
+unsupported and rejected at registration. A multi-candidate
 choice remains agent-mediated, not model-free; direct single-operation `AgentChoice` is
 unchanged. See
 [`10_result_chain`](../examples/10_result_chain/README.md) for the persisted inventory example and

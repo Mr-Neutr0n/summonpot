@@ -2,6 +2,11 @@
 
 A real HTTP bearer authenticator resolves tenant identity from app-owned `TENANT_BEARER_TOKENS` (`tenant-a:tokenA,tenant-b:tokenB`). Supply your own random secrets; do not put real tokens in source control or chat. No login, JWT, or token store is involved. Each note write uses its own SQLite connection, a tenant-scoped idempotency constraint, and returns a validated receipt read from/confirmed by SQLite. Repeating the same key and exact note data returns its persisted receipt; conflicting reuse fails. Caller JSON is strict (`extra='forbid'`) and cannot supply tenant identity.
 
+Replays return the identical persisted creation receipt, including `status="created"`;
+that status does not mean another row was inserted. Conflicting key reuse raises an
+application `ValueError`, mapped by the existing runtime to a fixed redacted HTTP 500,
+without changing the stored row. This example does not add a typed HTTP conflict mapping.
+
 ## Run
 
 This feature is unreleased and is not in published v0.12.0. From the repository root,
@@ -18,7 +23,7 @@ Use secrets generated locally (for example `python -c 'import secrets; print(sec
 
 ```sh
 curl -i -X POST http://127.0.0.1:8000/notes \
-  -H 'content-type: application/json' -H 'authorization: Bearer REPLACE_WITH_SECRET_A' \
+  -H 'content-type: application/json' -H 'authorization: Bearer YOUR_CONFIGURED_TOKEN' \
   -d '{"note_id":"n-001","text":"First tenant note","idempotency_key":"key-001"}'
 curl -i -X POST http://127.0.0.1:8000/notes -H 'content-type: application/json' \
   -d '{"note_id":"n-unauthorized","text":"must not persist","idempotency_key":"key-x"}'
