@@ -293,13 +293,11 @@ the agent runtime; `AgentChoice` in the original single-operation form is unchan
 
 ### 4. Authenticated application context
 
-Activate `FromContext` only after the framework has an authenticated, application-owned
-context contract:
+Authenticated application context (implemented in current unreleased source; not included in published 0.12.0):
 
-- Context values come from immutable request-local framework state, never prompt text or
-  caller-controlled capability arguments.
-- Context types and missing-value behavior are validated before operation invocation.
-- Secrets remain hidden from model-visible signatures, schemas, descriptions, and errors.
+- An application-owned sync/async provider is called for every HTTP request and returns a validated immutable principal; HTTP request JSON is never authority.
+- Context types and missing/authentication failures are handled before operations or model resolution and within the runtime deadline.
+- Context remains hidden from model-visible signatures, schemas, descriptions, and errors. The application still owns login, authorization, and tenant isolation.
 
 ### 5. Broader bounds and private path classification
 

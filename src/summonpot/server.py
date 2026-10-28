@@ -8,6 +8,7 @@ from types import UnionType
 from typing import TYPE_CHECKING, Annotated, Any, Union, get_args, get_origin
 
 from summonpot import __version__
+from summonpot._context import AuthenticationError, _ContextError, _HttpContext
 from summonpot._execution import (
     _CompiledEndpoint,
     _create_parameter_model,
@@ -133,7 +134,7 @@ def build_app(summon: Summon) -> Any:
 
             app.add_api_route(route_path, _handle_with_body, **route_kwargs)
         else:
-            _handle_without_body = _make_no_body_handler(endpoint, summon)
+            _handle_without_body = _make_no_body_handler(endpoint, summon, definition)
 
             app.add_api_route(route_path, _handle_without_body, **route_kwargs)
 
@@ -268,7 +269,9 @@ def _reject_invalid_operation_ids(endpoints: list[Any]) -> None:
         seen[operation_id] = endpoint
 
 
-async def _run_endpoint(summon: Any, endpoint: Any, params: dict[str, Any]) -> Any:
+async def _run_endpoint(
+    summon: Any, endpoint: Any, params: dict[str, Any], *, request: Any = None
+) -> Any:
     """Run an endpoint, translating runtime failures into stable HTTP responses.
 
     Without this every failure — an unmet required capability, a provider outage, an
@@ -293,7 +296,28 @@ async def _run_endpoint(summon: Any, endpoint: Any, params: dict[str, Any]) -> A
 
     token = _http_error_boundary.set(True)
     try:
+        plan = _registered_plan(endpoint)
+        if plan is not None and plan.context is not None:
+            from summonpot.runtime import Runtime
+
+            # A replacement call method could accept context= yet skip the provider.
+            # Existing custom runtimes stay compatible when context is not enabled.
+            if getattr(summon._runtime.call, "__func__", None) is not Runtime.call:
+                raise _ContextError()
+            return await summon._runtime.call(
+                endpoint, params, context=_HttpContext(request)
+            )
         return await summon._runtime.call(endpoint, params)
+    except AuthenticationError:
+        raise HTTPException(
+            status_code=401, detail="Application authentication is required."
+        ) from None
+    except _ContextError:
+        logger.error("Endpoint %s application context failed", endpoint.path)
+        raise HTTPException(
+            status_code=500,
+            detail="Application context did not satisfy its declared contract.",
+        ) from None
     except _ChoiceUnavailableError:
         logger.warning("Endpoint %s has no supported candidate domain", endpoint.path)
         raise HTTPException(
@@ -426,6 +450,7 @@ def _make_body_handler(
     # `__signature__` and the name FastAPI calls with could drift apart.
     async def handle(**values: Any) -> Any:
         path_values = dict(values)
+        http_request = path_values.pop(context_name, None) if context_name else None
         body = path_values.pop(body_name, None)
 
         if hasattr(body, "model_dump"):
@@ -456,7 +481,7 @@ def _make_body_handler(
             if isinstance(definition, _CompiledEndpoint)
             else _RequestValues(prompt, typed=typed)
         )
-        return await _run_endpoint(summon, endpoint, params)
+        return await _run_endpoint(summon, endpoint, params, request=http_request)
 
     # FastAPI reads __signature__, so naming the path parameters explicitly is
     # what turns them into bound, validated, documented path parameters instead
@@ -483,6 +508,7 @@ def _make_body_handler(
         )
         annotations[p.name] = annotation
 
+    context_name = _add_context_parameter(parameters, annotations, definition)
     handle.__signature__ = inspect.Signature(parameters)  # type: ignore[attr-defined]
     handle.__annotations__ = annotations
     return handle
@@ -509,12 +535,13 @@ def _make_query_handler(
     from fastapi import Query
 
     async def handle(**kwargs: Any) -> Any:
+        http_request = kwargs.pop(context_name, None) if context_name else None
         params = (
             _validated_transport_request(definition, kwargs, typed=kwargs)
             if isinstance(definition, _CompiledEndpoint)
             else kwargs
         )
-        return await _run_endpoint(summon, endpoint, params)
+        return await _run_endpoint(summon, endpoint, params, request=http_request)
 
     parameters = []
     annotations: dict[str, Any] = {}
@@ -544,18 +571,44 @@ def _make_query_handler(
 
     # FastAPI reads __signature__, so this is what turns **kwargs into a documented
     # set of query parameters.
+    context_name = _add_context_parameter(parameters, annotations, definition)
     handle.__signature__ = inspect.Signature(parameters)  # type: ignore[attr-defined]
     handle.__annotations__ = annotations
     return handle
 
 
-def _make_no_body_handler(endpoint: Any, summon: Any) -> Any:
+def _make_no_body_handler(endpoint: Any, summon: Any, definition: Any = None) -> Any:
     """Create a parameter-free route handler with context retained in its closure."""
 
-    async def handle() -> Any:
-        return await _run_endpoint(summon, endpoint, {})
+    async def handle(**kwargs: Any) -> Any:
+        http_request = kwargs.get(context_name) if context_name else None
+        return await _run_endpoint(summon, endpoint, {}, request=http_request)
 
+    parameters: list[Any] = []
+    annotations: dict[str, Any] = {}
+    context_name = _add_context_parameter(parameters, annotations, definition)
+    handle.__signature__ = inspect.Signature(parameters)  # type: ignore[attr-defined]
+    handle.__annotations__ = annotations
     return handle
+
+
+def _add_context_parameter(
+    parameters: list[Any], annotations: dict[str, Any], definition: Any
+) -> str | None:
+    """Inject the HTTP request without reserving any legal business-field name."""
+    if not isinstance(definition, _CompiledEndpoint) or definition.context is None:
+        return None
+    from fastapi import Request
+
+    taken = {parameter.name for parameter in parameters}
+    name = "_context_request"
+    while name in taken:
+        name = "_" + name
+    parameters.append(
+        inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY, annotation=Request)
+    )
+    annotations[name] = Request
+    return name
 
 
 def _field_type(param: Any) -> Any:

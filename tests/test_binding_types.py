@@ -258,10 +258,10 @@ def test_a_compatible_result_chain_reaches_fail_closed_admission():
 
 
 def test_a_context_binding_reaches_fail_closed_admission():
-    """Its type is not disproven, but the current runtime cannot enforce its source."""
+    """A context binding cannot be served without its trusted provider."""
     summon = Summon("svc")
 
-    with pytest.raises(TypeError, match="explicit contract unenforced"):
+    with pytest.raises(TypeError, match="application context provider"):
         _register(
             summon,
             Operation(

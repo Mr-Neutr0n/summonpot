@@ -55,6 +55,12 @@ keeps its chain agent-mediated. The v0.11.0 boundary above is historical.
 
 ## Progression
 
+Current unreleased source adds [authenticated tenant context](13_authenticated_context/README.md)
+as level 13. It verifies application-owned bearer credentials and injects `FromContext`
+without putting identity in caller JSON or model arguments. The SQLite example runs
+model-free and independently verifies tenant-scoped writes and idempotency. Published
+v0.12.0 does not include this context feature.
+
 ### 1. Minimal typed endpoint
 
 File: `basic_app.py`

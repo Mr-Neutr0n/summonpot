@@ -194,7 +194,7 @@ canonical result context. The selected token is mapped locally to that exact can
 validated member; Python equality is not authority. Projection respects field exclusions
 and aliases without application serializers. Empty, unavailable, or oversized
 sets fail with a fixed redacted 409 before model decision and before downstream work;
-there is no extra model request. `FromContext` remains unsupported. Unsupported graphs
+there is no extra model request. `FromContext` is supported only in the narrow authenticated-context slice described below; that feature is unreleased source behavior. Unsupported graphs
 fail closed. A two-or-more candidate choice still uses the agent runtime; it is not a
 model-free execution path.
 
@@ -234,7 +234,7 @@ execution begins. Multi-operation chains are admitted only as a supported sequen
 `FromRequest`/`FromResult` and supported immutable callable defaults. These fully resolved
 chains run without model resolution and return the unique terminal operation's canonical
 validated result; a producer-backed `AgentChoice` keeps its chain agent-mediated.
-`FromContext`, unsupported choice containers, broader bounds and unsupported graphs are
+authenticated `FromContext` outside the supported narrow shapes, unsupported choice containers, broader bounds and unsupported graphs are
 rejected during registration. Direct `AgentChoice` remains supported in the existing
 single-operation form. Bare `Depends(fn)` and `Required(fn)` calls keep their implicit
 legacy bounds; explicit unsupported call bounds are not admitted.
@@ -325,6 +325,69 @@ Supported immutable callable defaults are exact built-in `None`, `bool`, `int`,
 only those values recursively. Custom types (including subclasses of those built-ins)
 and mutable defaults keep the endpoint agent-backed; copy hooks are not proof of
 immutability. Scalar request declarations also remain agent-backed.
+
+
+## Authenticated application context (unreleased source feature)
+
+Current unreleased source supports `FromContext` only on a single required operation with `calls=Exactly(1)`, and an admitted uniquely ordered required `Exactly(1)` chain. This is not part of published 0.12.0. It is application-authenticated context, not built-in login or authorization.
+
+```python
+import os
+import secrets
+from pydantic import BaseModel, ConfigDict
+from summonpot import Exactly, FromContext, FromRequest, Operation, Required, Summon
+from my_service.models import TenantRequest, TenantResponse
+from my_service.operations import fetch_tenant
+
+
+class Principal(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    tenant_id: str
+
+
+# In a real deployment, load a securely provisioned expected token and map
+# verified credentials to the principal in your application's auth layer.
+def authenticate(request) -> Principal:
+    supplied = request.headers.get("authorization", "")
+    expected = os.environ["SERVICE_TOKEN"]
+    if not secrets.compare_digest(supplied, f"Bearer {expected}"):
+        raise PermissionError
+    return Principal(tenant_id=os.environ["SERVICE_TENANT"])
+
+
+load_tenant = Operation(
+    fetch_tenant,
+    bind={"tenant_id": FromContext("tenant_id"), "record_id": FromRequest("record_id")},
+    output=TenantResponse,
+)
+summon = Summon("service", context=authenticate)
+
+
+@summon("/tenant")
+def read_tenant(
+    request: TenantRequest, result=Required(load_tenant, calls=Exactly(1))
+) -> TenantResponse:
+    """Read the authenticated tenant."""
+    ...
+```
+
+The request object is only the HTTP-framework boundary for credential extraction. A real authenticator must verify credentials and return the server-derived identity; never create a success receipt, trust a body/header value without verification, or accept model-selected identity. The provider runs once per HTTP request inside the runtime timeout, before operations/model resolution. Its frozen Pydantic result must use `extra="forbid"` and immutable primitive/typed tuple/frozenset fields. Context field names are canonical model names (not aliases), and context values are not implicitly added to model inputs. Authentication denial maps to fixed 401; unexpected provider or invalid-context failures map to fixed redacted 500. Raw `Runtime.call(..., context=principal)` is trusted application code only, never HTTP/JSON authority. The app remains responsible for login, operation authorization, and tenant isolation.
+The framework does not insert the context object or its values into model instructions, request prompts, schemas, or error responses. This is not a guarantee that a value is secret if application code discloses it: operation outputs may intentionally be returned to the model on the existing single-operation agent path, and that disclosure remains the application's responsibility. FastAPI transport validation occurs before the provider; provider execution is within `Runtime.timeout`. `PermissionError` maps to 401 only when raised by the context provider; an operation's `PermissionError` is an application failure (500).
+
+Admission inspects canonical principal values without copying or coercion. Principal
+validation hooks, custom initialization/post-init hooks, and transforming model config
+are rejected at registration; perform normalization in the authenticator instead.
+
+The snippet imports the real application's request/response models and operation; its
+`TenantRequest` must declare `record_id`. The full runnable implementation is
+`examples/13_authenticated_context/app.py`. The provider protects every declared Summon
+endpoint, even without a context binding; documentation and OpenAPI routes remain outside
+this authentication hook. Context receiving constraints for the whole
+chain are preflighted before any operation. Existing direct eligibility still requires a
+Pydantic request and at least one `FromRequest` binding; context-only declarations remain
+agent-mediated. Authenticated HTTP uses standard `Runtime.call`; overriding that method is
+unsupported and fails closed. Context-unused custom runtimes retain their existing API.
+
 
 ## HTTP methods
 

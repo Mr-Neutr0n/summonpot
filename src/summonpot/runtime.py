@@ -19,6 +19,7 @@ from pydantic_ai import Agent, ModelRetry, RunContext, Tool
 from pydantic_ai.models import Model
 from pydantic_ai.usage import UsageLimits
 
+from summonpot._context import _ContextError, _resolve_context
 from summonpot._execution import (
     _CompiledEndpoint,
     _CompiledTool,
@@ -29,7 +30,7 @@ from summonpot._execution import (
     _register_endpoint,
     _registered_plan,
 )
-from summonpot.contracts import AgentChoice, FromRequest
+from summonpot.contracts import AgentChoice, FromContext, FromRequest
 from summonpot.models import EndpointDef
 
 ModelSpec = Model | str
@@ -249,6 +250,11 @@ async def _invoke_bound_operation(
                     f"does not satisfy parameter {binding.argument!r}'s receiving "
                     "parameter contract."
                 ) from None
+            values[binding.argument] = value
+        elif type(binding.source) is FromContext:
+            value = run.context[binding.source.key]
+            if binding.validator is not None and not binding.validator.accepts(value):
+                raise _ContextError()
             values[binding.argument] = value
         elif (
             type(binding.source) is AgentChoice
@@ -491,13 +497,23 @@ class Runtime:
         self,
         endpoint: EndpointDef,
         params: Mapping[str, Any],
+        *,
+        context: Any = None,
     ) -> Any:
-        """Run one endpoint under a single deadline, including runtime preparation."""
+        """Run one endpoint under a single deadline, including context admission.
+
+        ``context=`` is an explicit trusted Python application boundary, not JSON
+        input. Supply an already authenticated instance of the registered principal
+        model. HTTP calls resolve the registered application provider instead.
+        No ambient principal is inherited from another invocation.
+        """
         deadline = None if self.timeout is None else time.monotonic() + self.timeout
         token = _runtime_deadline.set(deadline)
         try:
             async with asyncio.timeout(self.timeout):
-                return await self._call_with_deadline(endpoint, params, deadline)
+                return await self._call_with_deadline(
+                    endpoint, params, deadline, context
+                )
         finally:
             _runtime_deadline.reset(token)
 
@@ -506,6 +522,7 @@ class Runtime:
         endpoint: EndpointDef,
         params: Mapping[str, Any],
         deadline: float | None,
+        context: Any = None,
     ) -> Any:
         """Execute inside ``call``'s request-scoped absolute timeout context."""
 
@@ -514,8 +531,21 @@ class Runtime:
                 raise TimeoutError
 
         plan = self._plan_for(endpoint)
+        context_values = await _resolve_context(plan.context, context, _call_capability)
+        # Preflight the entire context contract before any operation or model starts.
+        for tool in plan.tools:
+            for binding in tool.bindings:
+                if type(binding.source) is FromContext:
+                    if binding.source.key not in context_values:
+                        raise _ContextError()
+                    if binding.validator is not None and not binding.validator.accepts(
+                        context_values[binding.source.key]
+                    ):
+                        raise _ContextError()
+        check_deadline()
         request = _prepare_request(plan, params)
         run = _new_run(plan, request)
+        run.context = context_values
         check_deadline()
         if plan.direct_tool is not None:
             result = await _invoke_bound_operation(

@@ -105,8 +105,9 @@ token maps to that exact canonical member; Python equality is not authority. Pro
 respects field exclusions and aliases without application serializers. Limits are 128
 candidates and 65,536 JSON characters per binding. Empty, unavailable, or oversized sets
 fail with a fixed redacted 409 before model decision and downstream work, with no extra model
-request. Primitive/untyped collections, direct unbounded chain choices, `FromContext`,
-broader graphs and bounds remain unsupported and rejected at registration. A multi-candidate
+request. Primitive/untyped collections, direct unbounded chain choices, context bindings
+outside the authenticated source slice below, and broader graphs and bounds remain
+unsupported and rejected at registration. A multi-candidate
 choice remains agent-mediated, not model-free; direct single-operation `AgentChoice` is
 unchanged. See
 [`10_result_chain`](../examples/10_result_chain/README.md) for the persisted inventory example and
@@ -267,7 +268,7 @@ Broader explicit operation shapes are rejected before serving until complete gra
 ship. `FromResult` and `after` are supported only in a sequential chain where each step has
 exactly one ready operation. Producer-backed `AgentChoice(from_result=...)` is supported
 there only for producer outputs `list[ConcreteModel]`, under the bounded tokenized contract
-described above. `FromContext`, primitive/untyped collections, broader bounds, and unsupported graph shapes cannot fall through to unenforced model
+described above. Authenticated `FromContext` outside its narrow supported source slice, primitive/untyped collections, broader bounds, and unsupported graph shapes cannot fall through to unenforced model
 arguments. Bare callable dependencies retain the legacy agent path. Continue to validate
 inputs and enforce authorization inside every operation; trusted binding does not grant
 authorization or prove that final model claims match operation results.
@@ -276,3 +277,15 @@ Extending these guarantees across operation graphs begins in milestone 2 on the
 [roadmap](../ROADMAP.md).
 
 Strict SQLAlchemy and SQLite operation objects are planned and not yet shipped. See the target API examples in the README and the implementation sequence in the roadmap.
+
+
+### Authenticated application context — unreleased source feature
+
+The current source admits `FromContext` only for a single required operation with `Exactly(1)` and an eligible uniquely ordered required `Exactly(1)` chain. This is not in published 0.12.0. Register `Summon(context=authenticate)` with a sync or async one-request-argument function returning a Pydantic principal configured `frozen=True, extra="forbid"`. Fields must be immutable primitive values or typed tuples/frozensets. `FromContext("tenant_id")` refers to the canonical field name, not its validation alias.
+
+The provider executes anew for each HTTP request inside `Runtime.timeout`, before operations and model resolution. Authentication denial yields a fixed 401; unexpected provider/invalid principal failures yield fixed redacted 500 responses. Context values are not implicitly added to model inputs. Request JSON is not authority. Raw `Runtime.call(..., context=principal)` is a trusted application entry point only. This feature does not implement login, credential policy, operation authorization, or tenant-scoped data access; the application must perform all of those.
+The framework does not insert the context object or its values into model instructions, request prompts, schemas, or error responses. This is not a guarantee that a value is secret if application code discloses it: operation outputs may intentionally be returned to the model on the existing single-operation agent path, and that disclosure remains the application's responsibility. FastAPI transport validation occurs before the provider; provider execution is within `Runtime.timeout`. `PermissionError` maps to 401 only when raised by the context provider; an operation's `PermissionError` is an application failure (500).
+
+Principal admission is a non-transforming structural predicate over the authenticator's
+canonical values. Validation hooks, custom initialization/post-init hooks, and transforming
+model configurations fail registration rather than being replayed to change identity.
