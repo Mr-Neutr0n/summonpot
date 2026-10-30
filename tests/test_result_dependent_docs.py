@@ -150,11 +150,13 @@ def test_changelog_release_section_contains_consumed_fragment() -> None:
     changelog = (ROOT / "CHANGELOG.md").read_text()
     release = section(changelog, "## [0.14.0]", "## [0.13.0]")
     assert "result-dependent execution" in release.lower()
-    fragments = [
+    fragments = sorted(
         p
         for p in (ROOT / "changelog.d").iterdir()
         if p.is_file() and p.name != "README.md"
+    )
+    assert [p.name for p in fragments] == [
+        "+582d6bf2.changed.md",
+        "+multiple-producer-choices.added.md",
     ]
-    assert len(fragments) == 1
-    assert fragments[0].name == "+multiple-producer-choices.added.md"
-    assert fragments[0].read_text().strip()
+    assert all(p.read_text().strip() for p in fragments)
