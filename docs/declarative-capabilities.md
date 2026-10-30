@@ -105,8 +105,9 @@ token maps to that exact canonical member; Python equality is not authority. Pro
 respects field exclusions and aliases without application serializers. Limits are 128
 candidates and 65,536 JSON characters per binding. Empty, unavailable, or oversized sets
 fail with a fixed redacted 409 before model decision and downstream work, with no extra model
-request. Primitive/untyped collections, direct unbounded chain choices, `FromContext`,
-broader graphs and bounds remain unsupported and rejected at registration. A multi-candidate
+request. Primitive/untyped collections, direct unbounded chain choices, context bindings
+outside the authenticated source slice below, and broader graphs and bounds remain
+unsupported and rejected at registration. A multi-candidate
 choice remains agent-mediated, not model-free; direct single-operation `AgentChoice` is
 unchanged. See
 [`10_result_chain`](../examples/10_result_chain/README.md) for the persisted inventory example and
@@ -133,13 +134,7 @@ at least one argument is bound from `FromRequest`, every remaining argument come
 `FromRequest` or an immutable identity-stable callable default, and its declared output is
 the endpoint output model by exact identity, the runtime executes that operation directly
 before model resolution. There is no model fallback after direct execution starts.
-From 0.12.0, the same Pydantic request and at-least-one-`FromRequest` requirements also
-permit model-free chains of two or more required `Exactly(1)` operations with exactly one
-ready operation at every step. All arguments must resolve through `FromRequest`, locally
-validated `FromResult`, or supported immutable defaults, and the terminal operation must
-declare the endpoint's exact full response annotation. Its canonical validated result is
-returned. `after` supplies independent success ordering. Any `AgentChoice` keeps a chain
-agent-mediated; broader graphs remain unsupported.
+From 0.12.0, fully resolved chains run model-free only with a Pydantic request and at least one `FromRequest`, uniquely ordered required `Exactly(1)` steps, supported request/result/authenticated-context sources and immutable defaults, and an exact full terminal response annotation. Any `AgentChoice` in a published v0.13.0 chain remains agent-mediated. Included from version 0.14.0 is a narrow result-dependent path: exactly one producer-backed choice argument across the entire otherwise eligible chain, with no other choice; supported concrete-model list producer preceding its consumer; and all other inputs locally resolved. Empty/unavailable/oversized domains fail before model resolution/downstream, singleton binds locally and executes the fully resolved suffix without a model, and multiple candidates resolve the model after the prefix while retaining the existing agent-mediated suffix without replay. Existing 128-candidate/65,536-character bounds apply even to singleton domains. Prefix effects can precede provider-configuration failure; no rollback is implied. This narrows optimization eligibility only: other supported declarations keep their existing agent-mediated route. `after` supplies independent success ordering. Broader graphs remain unsupported.
 A direct `AgentChoice` in the admitted shape uses the provider-neutral agent loop. An
 unsupported explicit declaration fails before serving; bare callable dependencies keep their
 legacy agent behavior. `Operation(fn)` is still an explicit contract and is rejected because
@@ -267,7 +262,7 @@ Broader explicit operation shapes are rejected before serving until complete gra
 ship. `FromResult` and `after` are supported only in a sequential chain where each step has
 exactly one ready operation. Producer-backed `AgentChoice(from_result=...)` is supported
 there only for producer outputs `list[ConcreteModel]`, under the bounded tokenized contract
-described above. `FromContext`, primitive/untyped collections, broader bounds, and unsupported graph shapes cannot fall through to unenforced model
+described above. Authenticated `FromContext` outside its narrow supported source slice, primitive/untyped collections, broader bounds, and unsupported graph shapes cannot fall through to unenforced model
 arguments. Bare callable dependencies retain the legacy agent path. Continue to validate
 inputs and enforce authorization inside every operation; trusted binding does not grant
 authorization or prove that final model claims match operation results.
@@ -276,3 +271,15 @@ Extending these guarantees across operation graphs begins in milestone 2 on the
 [roadmap](../ROADMAP.md).
 
 Strict SQLAlchemy and SQLite operation objects are planned and not yet shipped. See the target API examples in the README and the implementation sequence in the roadmap.
+
+
+### Authenticated application context (included from version 0.13.0)
+
+Included from version 0.13.0, the source admits `FromContext` only for a single required operation with `Exactly(1)` and an eligible uniquely ordered required `Exactly(1)` chain. This was not included in version 0.12.0. Register `Summon(context=authenticate)` with a sync or async one-request-argument function returning a Pydantic principal configured `frozen=True, extra="forbid"`. Fields must be immutable primitive values or typed tuples/frozensets. `FromContext("tenant_id")` refers to the canonical field name, not its validation alias.
+
+The provider executes anew for each HTTP request inside `Runtime.timeout`, before operations and model resolution. Authentication denial yields a fixed 401; unexpected provider/invalid principal failures yield fixed redacted 500 responses. Context values are not implicitly added to model inputs. Request JSON is not authority. Raw `Runtime.call(..., context=principal)` is a trusted application entry point only. This feature does not implement login, credential policy, operation authorization, or tenant-scoped data access; the application must perform all of those.
+The framework does not insert the context object or its values into model instructions, request prompts, schemas, or error responses. This is not a guarantee that a value is secret if application code discloses it: operation outputs may intentionally be returned to the model on the existing single-operation agent path, and that disclosure remains the application's responsibility. FastAPI transport validation occurs before the provider; provider execution is within `Runtime.timeout`. `PermissionError` maps to 401 only when raised by the context provider; an operation's `PermissionError` is an application failure (500).
+
+Principal admission is a non-transforming structural predicate over the authenticator's
+canonical values. Validation hooks, custom initialization/post-init hooks, and transforming
+model configurations fail registration rather than being replayed to change identity.

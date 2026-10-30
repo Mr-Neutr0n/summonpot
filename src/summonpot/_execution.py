@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, create
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticCustomError, SchemaValidator, TzInfo
 
+from summonpot._context import _CompiledContext
 from summonpot._output_validation import (
     _compile_input_validator,
     _compile_output_auditor,
@@ -29,7 +30,7 @@ from summonpot._validation import (
     _chain_contract_tool_indices,
     _enforced_contract_tool_index,
 )
-from summonpot.contracts import AgentChoice, FromRequest, FromResult
+from summonpot.contracts import AgentChoice, FromContext, FromRequest, FromResult
 from summonpot.models import EndpointDef, ParamDef, ToolDef
 
 
@@ -180,6 +181,8 @@ class _CompiledEndpoint:
     direct_tool: int | None
     response_producer: int | None = None
     direct_chain_order: tuple[int, ...] | None = None
+    result_dependent_order: tuple[int, ...] | None = None
+    context: _CompiledContext | None = field(default=None, repr=False)
 
 
 _REGISTERED_PLANS: dict[int, tuple[ReferenceType[EndpointDef], _CompiledEndpoint]] = {}
@@ -983,9 +986,10 @@ def _register_endpoint(
     endpoint: EndpointDef,
     *,
     allow_direct: bool = True,
+    context: _CompiledContext | None = None,
 ) -> _CompiledEndpoint:
     """Compile and privately retain one endpoint's immutable execution plan."""
-    plan = _compile_endpoint(endpoint, allow_direct=allow_direct)
+    plan = _compile_endpoint(endpoint, allow_direct=allow_direct, context=context)
     identity = id(endpoint)
 
     def discard(reference: ReferenceType[EndpointDef]) -> None:
@@ -1021,6 +1025,9 @@ class _EndpointRun:
 
     request: Mapping[str, Any]
     states: list[_OperationState]
+    context: Mapping[str, Any] = field(
+        default_factory=lambda: MappingProxyType({}), repr=False
+    )
     choice_sets: dict[tuple[int, str], Any] = field(default_factory=dict)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     application_failure: bool = False
@@ -1030,9 +1037,17 @@ def _compile_endpoint(
     endpoint: EndpointDef,
     *,
     allow_direct: bool = True,
+    context: _CompiledContext | None = None,
 ) -> _CompiledEndpoint:
     """Snapshot validated endpoint metadata into an immutable runtime plan."""
     source_tools = tuple(endpoint.tools)
+    if context is None and any(
+        type(source) is FromContext
+        for tool in source_tools
+        if tool.contract is not None and tool.contract.bind is not None
+        for source in tool.contract.bind.values()
+    ):
+        raise TypeError("FromContext requires an application context provider.")
     output_adapter = (
         TypeAdapter(endpoint.output_annotation or endpoint.output_model)
         if endpoint.output_model is not None
@@ -1130,6 +1145,31 @@ def _compile_endpoint(
         direct_tool=direct_index,
         response_producer=(chain_indices[-1] if chain_indices else None),
         direct_chain_order=direct_chain_order,
+        result_dependent_order=(
+            chain_indices
+            if allow_direct
+            and chain_indices is not None
+            and endpoint.input_model is not None
+            and any(
+                type(binding.source) is FromRequest
+                for tool in tools
+                for binding in tool.bindings
+            )
+            and sum(
+                type(binding.source) is AgentChoice
+                for tool in tools
+                for binding in tool.bindings
+            )
+            == 1
+            and all(
+                type(binding.source) is not AgentChoice
+                or binding.producer_identity is not None
+                for tool in tools
+                for binding in tool.bindings
+            )
+            else None
+        ),
+        context=context,
     )
 
 
@@ -1149,7 +1189,7 @@ def _direct_chain_order(
         for source in contract.bind.values():
             if type(source) is FromRequest:
                 saw_request_binding = True
-            elif type(source) is not FromResult:
+            elif type(source) not in (FromResult, FromContext):
                 return None
     return order if saw_request_binding else None
 
@@ -1254,8 +1294,13 @@ def _direct_tool_index(
         endpoint.output_annotation or endpoint.output_model
     ):
         return None
-    if not contract.bind or any(
-        not isinstance(source, FromRequest) for source in contract.bind.values()
+    if (
+        not contract.bind
+        or not any(type(source) is FromRequest for source in contract.bind.values())
+        or any(
+            type(source) not in (FromRequest, FromContext)
+            for source in contract.bind.values()
+        )
     ):
         return None
     if not _direct_defaults_are_stable(tools[enforce_index], contract.bind):
@@ -1779,7 +1824,7 @@ def _compile_tool(
                 source,
                 _compile_receiving_validator(signature.parameters[name].annotation)
                 if (
-                    isinstance(source, (FromRequest, FromResult))
+                    isinstance(source, (FromRequest, FromResult, FromContext))
                     or (
                         isinstance(source, AgentChoice)
                         and source.from_result is not None

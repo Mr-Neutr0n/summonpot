@@ -26,8 +26,9 @@ export SUMMONPOT_MODEL="openrouter:google/gemini-3.7-flash"
 ```
 
 Level 8's fully resolved operation requires no provider model or credentials. From 0.12.0,
-the fully resolved chains in levels 10 and 11 also run without a model. The other examples,
-including level 12's producer-backed choice, use the configured agent runtime.
+the fully resolved chains in levels 10 and 11 also run without a model. Level 12 demonstrates
+the producer-choice path. Its singleton local route is included from version 0.14.0; published
+v0.13.0 ran all level-12 choices through the configured agent runtime.
 
 Keep secrets in your environment or secret manager—never in an example file. Start any example through the CLI:
 
@@ -39,21 +40,40 @@ Then open `http://127.0.0.1:8000/docs` or call it with `curl`.
 
 Bare `Depends(...)` and `Required(...)` capabilities still receive model-selected
 arguments. The bound runtime is deliberately narrower: an endpoint with exactly one
-required typed operation, `Exactly(1)`, and only `FromRequest`, direct `AgentChoice`, or
+required typed operation, `Exactly(1)`, and only `FromRequest`, authenticated `FromContext`
+(from 0.13.0), direct `AgentChoice`, or
 defaulted arguments receives trusted request injection, a filtered model schema, local
 operation-output validation, and one permitted start. Level 7 runs that shipped path.
 When the endpoint uses a Pydantic request model, the operation has at least one
-`FromRequest` binding, uses only `FromRequest` or supported immutable callable defaults,
+`FromRequest` binding, resolves all inputs through `FromRequest`, authenticated `FromContext`
+(from 0.13.0), or supported immutable callable defaults,
 and its output exactly matches the endpoint response model, Summonpot executes it directly
-without a model; Level 8 runs that path. Version 0.11.0 also admits a sequential `Required(..., calls=Exactly(1))` chain of two or more operations, with exactly one ready operation at every step, linked by `FromResult` or `after` and using `FromRequest`/`FromResult`, supported immutable defaults, and optionally producer-backed `AgentChoice(from_result=...)` from `list[ConcreteModel]`. It has no context or broader bounds. At the historical v0.11.0 boundary, every supported chain executes through the agent runtime. The unique terminal operation output annotation must exactly match the endpoint response annotation; its canonical validated result is returned. `FromResult` implies readiness; optional `after` adds success-ordering. Intermediate canonical results are hidden from the model (completion acknowledgments only). Unsupported graphs fail closed. Sequential chain support starts in 0.11.0; historical v0.10.0 does not include it.
+without a model; Level 8 runs that path. Version 0.11.0 also admits a sequential `Required(..., calls=Exactly(1))` chain of two or more operations, with exactly one ready operation at every step, linked by `FromResult` or `after` and using `FromRequest`/`FromResult`, supported immutable defaults, and optionally producer-backed `AgentChoice(from_result=...)` from `list[ConcreteModel]`. At the historical v0.11.0 boundary, every supported chain executes through the agent runtime. The unique terminal operation output annotation must exactly match the endpoint response annotation; its canonical validated result is returned. `FromResult` implies readiness; optional `after` adds success-ordering. Intermediate canonical results are hidden from the model (completion acknowledgments only). Unsupported graphs fail closed. Sequential chain support starts in 0.11.0; historical v0.10.0 does not include it.
 
 From 0.12.0, fully resolved chains run without a model only with a Pydantic request,
 at least one `FromRequest` binding, two or more required `Exactly(1)` operations with
 unique readiness, only `FromRequest`/`FromResult` sources or supported immutable defaults,
 and the terminal operation's exact full endpoint response annotation. Any `AgentChoice`
-keeps its chain agent-mediated. The v0.11.0 boundary above is historical.
+kept its chain agent-mediated in published v0.13.0. From version 0.14.0, the runtime additionally
+permits exactly one producer-backed choice across an otherwise eligible chain: zero candidates
+fails before model/downstream, singleton binds locally and runs the suffix model-free, and
+multiple candidates resolve the model after the prefix and retain the agent-mediated suffix.
+It still requires a Pydantic request, at least one `FromRequest`, supported immutable inputs,
+unique order, exact full terminal annotation, and existing 128-item/65,536-character bounds.
+All other producer-choice declarations retain their existing route. The v0.11.0 boundary above is historical.
+From 0.13.0, authenticated `FromContext` may also resolve inputs in those admitted direct
+single-operation and chain paths. The Pydantic request, at least one `FromRequest`,
+immutable-default, unique-readiness, and exact full response-annotation requirements
+remain; context-only or scalar-request declarations and any declared `AgentChoice` remain
+agent-mediated. Level 13 demonstrates that authenticated direct path.
 
 ## Progression
+
+Included from version 0.13.0: [authenticated tenant context](13_authenticated_context/README.md)
+as level 13. It verifies application-owned bearer credentials and injects `FromContext`
+without putting identity in caller JSON or model arguments. The SQLite example runs
+model-free and independently verifies tenant-scoped writes and idempotency. Published
+v0.12.0 does not include this context feature.
 
 ### 1. Minimal typed endpoint
 
@@ -256,6 +276,7 @@ The examples do not claim these planned features exist:
 - broader multi-operation graph and model-free execution;
 - SQLAlchemy or SQLite operation adapters;
 - streaming responses;
-- built-in authentication.
+
+Authenticated context is an application-owned credential hook, not built-in login or authorization.
 
 For local development, bind to `127.0.0.1`. Before exposing a service, put authentication in front of it and configure runtime limits because every reachable request can spend provider credit.

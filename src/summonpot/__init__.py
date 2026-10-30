@@ -4,6 +4,7 @@ from importlib.metadata import PackageNotFoundError, version
 
 from pydantic_ai.usage import UsageLimits
 
+from summonpot._context import AuthenticationError
 from summonpot.contracts import (
     AgentChoice,
     AtLeast,
@@ -28,6 +29,7 @@ __all__ = [
     "AgentChoice",
     "AtLeast",
     "AtMost",
+    "AuthenticationError",
     "Between",
     "CallBounds",
     "Depends",

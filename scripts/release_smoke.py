@@ -6,8 +6,10 @@ import argparse
 import importlib.metadata
 import json
 import os
+import secrets
 import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -82,6 +84,12 @@ CASES = (
         "/customers/view",
         {"customerId": "customer-7"},
     ),
+    ExampleCase(
+        "13_authenticated_context/app.py",
+        "POST",
+        "/notes",
+        {"note_id": "smoke", "text": "persisted note", "idempotency_key": "smoke-key"},
+    ),
 )
 
 
@@ -96,9 +104,11 @@ def _request(
     method: str,
     path: str,
     payload: dict[str, Any] | None = None,
+    *,
+    headers: dict[str, str] | None = None,
 ) -> tuple[int, bytes]:
     data = None
-    headers: dict[str, str] = {}
+    headers = dict(headers or {})
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
@@ -245,6 +255,15 @@ def _verify_case(case: ExampleCase, examples_root: Path, workdir: Path) -> None:
         SUMMONPOT_ORDER_LOG=str(workdir / "orders.jsonl"),
         SUMMONPOT_TICKET_LOG=str(workdir / "tickets.jsonl"),
     )
+    auth_headers: dict[str, str] = {}
+    if case.source == "13_authenticated_context/app.py":
+        token = secrets.token_urlsafe(32)
+        environment.update(
+            TENANT_BEARER_TOKENS=f"smoke-tenant:{token}",
+            AUTH_CONTEXT_DB=str(workdir / "authenticated-notes.sqlite3"),
+            SUMMONPOT_MODEL="invalid:no-provider",
+        )
+        auth_headers["Authorization"] = f"Bearer {token}"
     process = subprocess.Popen(
         [
             _cli_path(),
@@ -264,10 +283,28 @@ def _verify_case(case: ExampleCase, examples_root: Path, workdir: Path) -> None:
     try:
         _wait_until_ready(base_url, process)
 
-        success, body = _request(base_url, case.method, case.path, payload=case.payload)
+        success, body = _request(
+            base_url, case.method, case.path, payload=case.payload, headers=auth_headers
+        )
         if success != 200:
             raise AssertionError(f"{case.source} success returned {success}: {body!r}")
         json.loads(body)
+        if auth_headers:
+            denied, _ = _request(base_url, case.method, case.path, payload=case.payload)
+            assert denied == 401
+            repeat, repeated_body = _request(
+                base_url,
+                case.method,
+                case.path,
+                payload=case.payload,
+                headers=auth_headers,
+            )
+            assert repeat == 200 and repeated_body == body
+            with sqlite3.connect(environment["AUTH_CONTEXT_DB"]) as db:
+                rows = db.execute(
+                    "SELECT tenant_id,note_id,text,idempotency_key FROM notes"
+                ).fetchall()
+            assert rows == [("smoke-tenant", "smoke", "persisted note", "smoke-key")]
 
         missing, _ = _request(base_url, "GET", "/__missing__")
         if missing != 404:

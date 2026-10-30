@@ -5,18 +5,17 @@ layer. The endpoint remains the stable public abstraction while its contract com
 exact application behavior with explicitly bounded agentic decisions. You declare the
 request model, the goal, the exact capabilities, and the response model.
 
-One fully resolved `Exactly(1)` operation path executes without a model when the endpoint
-uses a Pydantic request model and it has at least one `FromRequest` binding, uses only
-`FromRequest` or supported immutable identity-stable callable defaults, and the operation
-output is exactly the endpoint response model. Uniquely ordered sequential required
-`Exactly(1)` chains also execute without a model when they have at least one `FromRequest`
-binding and all arguments resolve through request/result bindings or supported immutable
-defaults. Chains with producer-backed `AgentChoice` remain agent-mediated. Bare legacy
-capabilities still use the provider-neutral agent runtime. Unsupported explicit contracts
-are rejected before serving. Version 0.11.0 supports sequential chains with exactly one
-ready operation at each step; that release's chains are agent-mediated. From version 0.12.0, fully resolved uniquely ordered chains run model-free; chains with
-agent-owned choices remain agent-mediated. Broader multi-operation deterministic execution
-and graph execution remain planned. Historical v0.10.0 does not include the 0.11.0 agent-mediated chain either.
+One fully resolved `Exactly(1)` operation path, with the operation required as the sole declared capability,
+executes without a model when the endpoint uses a Pydantic request model, has at least one
+`FromRequest` binding, and resolves every input through `FromRequest`, authenticated
+`FromContext` (from version 0.13.0), or supported immutable identity-stable callable defaults.
+The operation output is exactly the endpoint response model, including its full annotated
+contract. Uniquely ordered sequential required `Exactly(1)` chains also execute without a
+model with the same Pydantic request and at-least-one-`FromRequest` requirements, all inputs
+resolved through request/result/authenticated-context bindings or supported immutable
+defaults, and an exact full terminal output annotation matching the endpoint response.
+Context-only and scalar-request declarations remain agent-mediated, as does any direct
+`AgentChoice`. Published v0.13.0 chains with producer-backed `AgentChoice` remained agent-mediated, even for a singleton. Included from version 0.14.0 is a narrow result-dependent route: an existing uniquely ordered chain of required `Exactly(1)` operations, Pydantic request with at least one `FromRequest`, exactly one producer-backed choice argument across the whole chain and no other choice, supported immutable defaults and request/result/authenticated-context bindings, and exact full terminal annotation. Empty/unavailable/oversized domains fail before model/downstream; singleton binds the canonical validated item locally and runs the suffix without a model; two or more candidates resolve the model only after the prefix and retain the existing agent-mediated suffix, without replay. The 128-item/65,536-character evidence limits remain on all paths. Other producer choices keep their existing agent route. Prefix effects may occur before a later provider-configuration failure; no rollback is implied. Bare legacy capabilities still use the provider-neutral agent runtime. Unsupported explicit contracts are rejected before serving. Version 0.11.0 supports sequential chains with exactly one ready operation at each step; that release's chains are agent-mediated. From version 0.12.0, fully resolved uniquely ordered chains run model-free; chains with agent-owned choices remain agent-mediated. Broader multi-operation deterministic execution and graph execution remain planned. Historical v0.10.0 does not include the 0.11.0 agent-mediated chain either.
 The framework
 owns execution, including any agent loop. **The ellipsis is a complete declaration body**,
 not an implementation waiting to be written. Calling the decorated declaration directly is
@@ -180,7 +179,7 @@ successful predecessor completion. From version 0.12.0, fully resolved chains ru
 at least one `FromRequest` binding, a unique required `Exactly(1)` sequence, only
 `FromRequest`/`FromResult` bindings or supported immutable callable defaults, and the
 terminal operation's exact full endpoint response annotation. Its validated terminal result
-is returned unchanged. Any `AgentChoice` remains agent-mediated. Historical v0.11.0 chains
+is returned unchanged. In published v0.13.0, any `AgentChoice` keeps its chain agent-mediated. The narrow result-dependent exception above applies only to one producer-backed choice in the otherwise eligible chain; all other choices remain agent-mediated. Historical v0.11.0 chains
 remain agent-mediated. Their unique terminal operation's full output
 annotation must exactly equal the endpoint response annotation. Summonpot returns the
 canonical validated terminal result, not model-authored claims. Intermediate canonical
@@ -194,7 +193,7 @@ canonical result context. The selected token is mapped locally to that exact can
 validated member; Python equality is not authority. Projection respects field exclusions
 and aliases without application serializers. Empty, unavailable, or oversized
 sets fail with a fixed redacted 409 before model decision and before downstream work;
-there is no extra model request. `FromContext` remains unsupported. Unsupported graphs
+there is no extra model request. `FromContext` is supported only in the narrow authenticated-context slice described below, included from version 0.13.0. Unsupported graphs
 fail closed. A two-or-more candidate choice still uses the agent runtime; it is not a
 model-free execution path.
 
@@ -234,7 +233,7 @@ execution begins. Multi-operation chains are admitted only as a supported sequen
 `FromRequest`/`FromResult` and supported immutable callable defaults. These fully resolved
 chains run without model resolution and return the unique terminal operation's canonical
 validated result; a producer-backed `AgentChoice` keeps its chain agent-mediated.
-`FromContext`, unsupported choice containers, broader bounds and unsupported graphs are
+`FromContext` outside the supported narrow shapes, unsupported choice containers, broader bounds and unsupported graphs are
 rejected during registration. Direct `AgentChoice` remains supported in the existing
 single-operation form. Bare `Depends(fn)` and `Required(fn)` calls keep their implicit
 legacy bounds; explicit unsupported call bounds are not admitted.
@@ -325,6 +324,69 @@ Supported immutable callable defaults are exact built-in `None`, `bool`, `int`,
 only those values recursively. Custom types (including subclasses of those built-ins)
 and mutable defaults keep the endpoint agent-backed; copy hooks are not proof of
 immutability. Scalar request declarations also remain agent-backed.
+
+
+## Authenticated application context (included from version 0.13.0)
+
+Included from version 0.13.0, authenticated application context supports `FromContext` only on a single required operation with `calls=Exactly(1)`, and an admitted uniquely ordered required `Exactly(1)` chain. This was not part of version 0.12.0. It is application-authenticated context, not built-in login or authorization.
+
+```python
+import os
+import secrets
+from pydantic import BaseModel, ConfigDict
+from summonpot import Exactly, FromContext, FromRequest, Operation, Required, Summon
+from my_service.models import TenantRequest, TenantResponse
+from my_service.operations import fetch_tenant
+
+
+class Principal(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    tenant_id: str
+
+
+# In a real deployment, load a securely provisioned expected token and map
+# verified credentials to the principal in your application's auth layer.
+def authenticate(request) -> Principal:
+    supplied = request.headers.get("authorization", "")
+    expected = os.environ["SERVICE_TOKEN"]
+    if not secrets.compare_digest(supplied, f"Bearer {expected}"):
+        raise PermissionError
+    return Principal(tenant_id=os.environ["SERVICE_TENANT"])
+
+
+load_tenant = Operation(
+    fetch_tenant,
+    bind={"tenant_id": FromContext("tenant_id"), "record_id": FromRequest("record_id")},
+    output=TenantResponse,
+)
+summon = Summon("service", context=authenticate)
+
+
+@summon("/tenant")
+def read_tenant(
+    request: TenantRequest, result=Required(load_tenant, calls=Exactly(1))
+) -> TenantResponse:
+    """Read the authenticated tenant."""
+    ...
+```
+
+The request object is only the HTTP-framework boundary for credential extraction. A real authenticator must verify credentials and return the server-derived identity; never create a success receipt, trust a body/header value without verification, or accept model-selected identity. The provider runs once per HTTP request inside the runtime timeout, before operations/model resolution. Its frozen Pydantic result must use `extra="forbid"` and immutable primitive/typed tuple/frozenset fields. Context field names are canonical model names (not aliases), and context values are not implicitly added to model inputs. Authentication denial maps to fixed 401; unexpected provider or invalid-context failures map to fixed redacted 500. Raw `Runtime.call(..., context=principal)` is trusted application code only, never HTTP/JSON authority. The app remains responsible for login, operation authorization, and tenant isolation.
+The framework does not insert the context object or its values into model instructions, request prompts, schemas, or error responses. This is not a guarantee that a value is secret if application code discloses it: operation outputs may intentionally be returned to the model on the existing single-operation agent path, and that disclosure remains the application's responsibility. FastAPI transport validation occurs before the provider; provider execution is within `Runtime.timeout`. `PermissionError` maps to 401 only when raised by the context provider; an operation's `PermissionError` is an application failure (500).
+
+Admission inspects canonical principal values without copying or coercion. Principal
+validation hooks, custom initialization/post-init hooks, and transforming model config
+are rejected at registration; perform normalization in the authenticator instead.
+
+The snippet imports the real application's request/response models and operation; its
+`TenantRequest` must declare `record_id`. The full runnable implementation is
+`examples/13_authenticated_context/app.py`. The provider protects every declared Summon
+endpoint, even without a context binding; documentation and OpenAPI routes remain outside
+this authentication hook. Context receiving constraints for the whole
+chain are preflighted before any operation. Existing direct eligibility still requires a
+Pydantic request and at least one `FromRequest` binding; context-only declarations remain
+agent-mediated. Authenticated HTTP uses standard `Runtime.call`; overriding that method is
+unsupported and fails closed. Context-unused custom runtimes retain their existing API.
+
 
 ## HTTP methods
 

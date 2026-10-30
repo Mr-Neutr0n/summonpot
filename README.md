@@ -70,7 +70,7 @@ clear error; serve the application or invoke its generated HTTP route instead.
 > [!IMPORTANT]
 > The supported single-operation `Exactly(1)` path executes without resolving or constructing
 > a model. From version 0.12.0, uniquely ordered required `Exactly(1)` chains of at least two operations run model-free only with a Pydantic request, at least one `FromRequest` binding, all arguments bound through `FromRequest`/`FromResult` or supported immutable defaults, and a terminal operation declaring the endpoint's exact full response annotation. Chains with `AgentChoice()`
-> remain agent-mediated, as do bare legacy capabilities. Unsupported explicit contract shapes
+> remain agent-mediated except for the narrow result-dependent path included from version 0.14.0, described below; bare legacy capabilities remain agent-mediated. This narrow 0.14.0 eligibility requires an existing uniquely ordered chain of required `Exactly(1)` operations, a Pydantic request with at least one `FromRequest`, exactly one producer-backed choice argument across the entire chain and no other choice, supported immutable defaults and request/result/authenticated-context bindings, and an exact full terminal response annotation. Empty/unavailable/oversized domains fail before model resolution or downstream work; a singleton binds locally and runs its fully resolved suffix without a model; two-or-more candidates resolve the model only after the prefix and retain the agent-mediated suffix without replay. Existing 128-candidate/65,536-character bounds apply on every outcome. Prefix effects may precede later provider-configuration failure; no rollback is implied. The result-dependent route is included from version 0.14.0; historical v0.13.0 behavior remains agent-mediated for all producer-backed choices. Unsupported explicit contract shapes
 > fail at registration. Broader graphs remain on the [roadmap](ROADMAP.md), not shipped behavior.
 
 ## Why summonpot?
@@ -194,8 +194,7 @@ routing, and OpenAPI under Summonpot.
   response model. This path does not resolve, construct, or call a model.
 - **Sequential required-operation chains** with `Exactly(1)` bounds and unique readiness,
   bound by validated `FromRequest`/`FromResult` values and supported immutable defaults.
-  Included from version 0.12.0, eligible fully resolved chains execute without model resolution; chains with producer-backed
-  `AgentChoice` remain agent-mediated. Both return the validated terminal operation result.
+  Included from version 0.12.0, eligible fully resolved chains execute without model resolution. Included from version 0.14.0, one qualifying producer-backed choice in an otherwise eligible chain executes locally for a singleton; two-or-more candidates retain the existing agent-mediated suffix. Other producer-backed choices remain agent-mediated. Both return the validated terminal operation result.
 - **Registration-time contract validation** that rejects missing sources, invalid result
   references, unsupported choices, and provably incompatible types before serving.
 - **Provider-neutral model selection** for OpenAI, Anthropic, Google, Groq, Mistral,
@@ -347,7 +346,8 @@ The capability set is closed. For one required typed operation with explicit `Ex
 runtime injects `FromRequest` values, removes them and callable defaults from any
 model-visible tool schema, validates the declared operation output, and rejects a second
 start. If the endpoint uses a Pydantic request model, has at least one `FromRequest`
-binding, uses only `FromRequest` or supported immutable callable defaults, and that output
+binding, resolves remaining inputs from `FromRequest`, authenticated `FromContext` (from
+0.13.0), or supported immutable callable defaults, and that output
 is exactly the endpoint response model,
 Summonpot executes the operation directly. Otherwise direct `AgentChoice` arguments remain
 visible to the agent. Request values on agentic paths still appear in the agent's user
@@ -446,7 +446,8 @@ subclass, and Python's numeric widening permits `int` or `bool` to feed `float`.
 > oversized sets fail with a fixed redacted 409 before model decision or downstream work.
 > Chains with choices remain agent-mediated; eligible fully resolved chains run model-free
 > from 0.12.0 under the exact predicate above. Both return the unique terminal operation's
-> canonical validated result. `FromContext`, broader call bounds and graphs, and broader
+> canonical validated result. From version 0.13.0, application-authenticated
+> `FromContext` is admitted under the contract below. Broader call bounds and graphs and broader
 > deterministic compilation remain planned. Binding sources must be
 > exact built-in vocabulary types; user-defined subclasses are rejected too. Bare callable
 > dependencies without an explicit `Operation` contract remain compatible. `Operation(fn)`
@@ -459,7 +460,8 @@ A uniquely ready required operation can feed the next step without asking the mo
 
 The chain accepts `FromRequest`, `FromResult`, supported immutable defaults, and
 producer-backed `AgentChoice(from_result=producer)` for a producer output of
-`list[ConcreteModel]` only—not context bindings or direct unbounded choices. Candidate
+`list[ConcreteModel]` only. Version 0.12.0 did not support context bindings; authenticated `FromContext` is included from version 0.13.0 as described below. Direct unbounded
+choices remain unsupported inside chains. Candidate
 lists are limited to 128 items and 65,536 JSON characters per binding. Inert projections
 and opaque request-local tokens are exposed, never the canonical results; projection
 respects exclusions and aliases without application serializers. Local token membership
@@ -472,13 +474,59 @@ outside model context.
 
 Version 0.11.0 runs every supported chain through the agent runtime. From 0.12.0, fully
 resolved chains meeting the Pydantic-request, request-binding, immutable-source, unique-order,
-and exact terminal-response predicates above execute without a model. Any `AgentChoice`
-keeps its chain agent-mediated. Starts remain reserved after failure or
+and exact terminal-response predicates above execute without a model. The result-dependent route is **included from version 0.14.0**; historical published v0.13.0 behavior remains unchanged: it
+requires exactly one `AgentChoice(from_result=...)` argument across the whole otherwise fully
+resolved eligible chain, a Pydantic request with at least one `FromRequest`, and the same
+terminal response contract. Empty/unavailable/oversized domains fail before model resolution
+or downstream work; one candidate is bound locally and the suffix runs locally; multiple
+candidates resolve the model only after the prefix and retain the existing agent-mediated
+suffix. All other `AgentChoice` chains remain agent-mediated. Starts remain reserved after failure or
 uncertain timeout; model retries cannot replay effects. Applications own cross-request
 idempotency and transactions. See the runnable [three-step SQLite inventory reservation example](examples/11_linear_result_chain/README.md)
 and the [producer-constrained inventory choice example](examples/12_producer_choice/README.md)
 for real persisted receipts and independent database checks. These application-owned
 operations do not imply a framework database adapter. This feature is included from version 0.11.0; historical v0.10.0 does not include it.
+
+### Authenticated application context (included from version 0.13.0)
+
+Use `Summon(context=authenticate)` to register a plain sync or async function taking one
+HTTP request and returning its annotated Pydantic principal. The model must have
+`ConfigDict(frozen=True, extra="forbid")`; fields are exact immutable `str`, `bytes`,
+`bool`, `int`, finite `float`, `None`, or typed tuples/frozensets of those values.
+Admission inspects the provider's canonical values without copying or coercing them.
+Principal validation hooks, custom initializers/post-init hooks, and transforming model
+configurations are rejected at registration; normalize identity in the authenticator instead.
+`FromContext("tenant_id")` names a canonical principal field, not a client header, JSON
+field, model argument, or alias. The application verifies credentials and supplies identity;
+Summonpot does not implement login or infer authorization from an identifier.
+
+The provider protects every declared Summon endpoint, even one without a context binding.
+Documentation/OpenAPI routes are not authenticated by this hook. It runs once per business
+endpoint request inside `Runtime.timeout`, after transport validation
+and before model resolution or operation starts. The runtime snapshots immutable values
+and preflights all context receiving constraints, including downstream chain steps, before
+any operation starts. Missing/denied authentication returns a fixed 401; invalid context or
+unexpected provider failure returns a fixed redacted 500. Async cancellation is cooperative;
+a timed-out sync authenticator may finish in its worker, but no operation is then started.
+
+The supported single-operation and uniquely ordered required `Exactly(1)` chain shapes
+may bind context alongside request/result values. Existing direct eligibility still requires
+a Pydantic request, at least one `FromRequest` binding, supported immutable defaults, and
+the exact full response annotation. Context-only or scalar-request declarations remain
+agent-mediated. A declared `AgentChoice` remains agent-mediated too.
+
+Raw `Runtime.call(..., context=principal)` is an explicit trusted Python entry point for an
+already authenticated principal; it is never populated from request JSON or ambient state.
+Authenticated HTTP requires the standard `Runtime.call` admission path; replacement call
+methods are rejected rather than silently bypassing the provider. Custom runtimes remain
+compatible when authenticated context is unused.
+
+The framework does not insert context values into model prompts, schemas, or public errors.
+Application outputs can intentionally disclose values and remain application-owned, as do
+credential policy, operation authorization, and tenant-scoped database queries. See the
+[runnable SQLite notes example](examples/13_authenticated_context/README.md) for verified
+bearer tokens, two independent tenants, persisted receipts, and idempotency. This feature is
+not included in version 0.12.0.
 
 ## How it works today
 
@@ -539,14 +587,14 @@ Summonpot chooses its current execution path without adding a second endpoint AP
 
 | Contract state | Current execution |
 |---|---|
-| Pydantic request model, one required `Exactly(1)` operation, at least one `FromRequest` binding, only `FromRequest` or immutable identity-stable defaults, exact response-model output | Execute directly without a model |
+| Pydantic request model, one required `Exactly(1)` operation, at least one `FromRequest` binding, other inputs from `FromRequest`, authenticated `FromContext` (from 0.13.0), or immutable identity-stable defaults, exact response-model output | Execute directly without a model |
 | A direct `AgentChoice` remains in the admitted single-operation shape | Use the agent runtime with the enforced operation contract |
 | Eligible fully resolved sequential chain meeting every 0.12.0 predicate above | Model-free sequential execution; return the canonical terminal result |
-| Supported sequential chain with producer-backed `AgentChoice` | Agent-mediated readiness and result binding; return the canonical terminal result |
+| Supported sequential chain with producer-backed `AgentChoice` | Included from version 0.14.0: exactly one choice in an otherwise eligible chain gets local singleton suffix; multi-candidate choice resolves model after prefix and retains agent suffix. Historical v0.13.0 behavior remains agent-mediated for all such choices |
 | Bare callable capabilities with implicit marker bounds | Use the legacy agent runtime |
 | Unsupported explicit binding, ordering, bound, output, or multi-operation shape | Reject during registration |
 
-Broader graph execution and deterministic compilation beyond the supported sequential slice, SQLAlchemy/SQLite operation adapters, write receipts, streaming, and built-in authentication are **planned, not shipped**. See
+Broader graph execution and deterministic compilation beyond the supported sequential slice, SQLAlchemy/SQLite operation adapters, write receipts, streaming, and framework-managed authentication are **planned, not shipped**. Authentication context is application-owned; it does not add login, token issuance, or tenant isolation. See
 [ROADMAP.md](ROADMAP.md) for the design boundaries and implementation order.
 
 
@@ -688,8 +736,7 @@ Framework-owned failures return fixed messages. Normal logs contain allowlisted 
 
 One monotonic request deadline covers runtime request preparation, model/capability execution, and final output validation. Synchronous preparation or validation cannot be preempted; after they return, the runtime checks the same deadline before starting effects or returning output. HTTP body parsing and FastAPI request validation happen before the route handler and are outside this runtime deadline. Async cancellation is cooperative. A timed-out synchronous capability running in a worker thread can continue and complete its side effect after the caller receives a timeout, so timeout is an uncertain outcome—not evidence that no effect occurred. Use application-level deadlines/idempotency for irreversible work; summonpot never retries a capability or falls back to a model after the direct effect starts.
 
-Summonpot currently has no authentication layer. Bind local development to `127.0.0.1`.
-Before exposing a service, put authentication in front of it and configure runtime limits.
+Summonpot does not implement login or authentication policy. For HTTP routes, `Summon(context=...)` can resolve an application-authenticated principal per request; applications still own identity verification, authorization, tenant isolation, and deployment exposure. Bind local development to `127.0.0.1` and configure runtime limits.
 
 ## Examples
 

@@ -53,7 +53,7 @@ The current release line provides:
   and string patterns at registration.
 - Single-operation deterministic execution when the endpoint uses a Pydantic request model,
   that slice has no `AgentChoice`, contains at
-  least one `FromRequest` binding, uses only `FromRequest` or immutable identity-stable
+  least one `FromRequest` binding, uses `FromRequest`, authenticated `FromContext` (from 0.13.0), or immutable identity-stable
   callable defaults, and the operation output is exactly the endpoint response model:
   Summonpot executes directly without resolving or constructing a model.
 - Declarative call bounds and ordering references without adding decorator configuration.
@@ -188,12 +188,43 @@ Version 0.11.0 completes this subset of milestone 2, not the broader milestone. 
 
 From version 0.12.0, a Pydantic request endpoint executes a uniquely ordered chain of required `Exactly(1)` operations directly when the chain is fully resolved. The chain has at least two operations, exactly one required `Exactly(1)` operation is ready at each step, and every argument resolves through `FromRequest`, validated `FromResult`, or supported immutable callable defaults. At least one `FromRequest` binding is required. The terminal operation declares the endpoint's exact full response annotation, and its validated result is returned unchanged. No model is resolved or constructed, and there is no fallback after execution starts. Any `AgentChoice`, including producer-backed choices, keeps the chain agent-mediated. Unsupported shapes remain rejected. Historical v0.11.0 chains remain agent-mediated.
 
+### 0.13.0 boundary: authenticated application context
+
+Authenticated context is included from version 0.13.0 through `Summon(context=authenticate)` and canonical `FromContext` bindings
+to the admitted single required `Exactly(1)` operation and uniquely ordered required
+`Exactly(1)` chain shapes. The application verifies credentials and returns a frozen,
+closed Pydantic principal with supported immutable fields. Principal admission is a
+non-transforming structural check; unsupported validation/lifecycle hooks and transforming
+configuration are rejected instead of changing an authenticated identity.
+
+The provider is captured at registration, runs once for each declared HTTP endpoint request
+inside the runtime deadline after transport validation, and protects endpoints even without
+a context binding. Documentation/OpenAPI routes are outside this hook. Authentication denial
+returns fixed 401; invalid context or unexpected provider failures return fixed redacted 500.
+All context receiving constraints, including later chain steps, are preflighted before any
+operation or model starts. The context snapshot is request-local and hidden from model input;
+application outputs can intentionally disclose values and remain application-owned.
+
+Authenticated `FromContext` can join a fully resolved model-free path, but the existing
+Pydantic request, at-least-one-`FromRequest`, immutable-default, and exact terminal response
+requirements remain. `AgentChoice` stays agent-mediated. Raw `Runtime.call(...,
+context=principal)` is trusted server code only; authenticated HTTP requires standard
+`Runtime.call` admission and rejects replacement call methods. Login, authorization,
+tenant-scoped database queries, cross-request idempotency, and transactions remain
+application responsibilities. Broader bounds, graphs, adapters, recovery, and persistent
+memory remain planned. Historical 0.12.0 does not include authenticated context.
+
+### 0.14.0 boundary: result-dependent execution with one producer-backed choice
+
+Version 0.14.0 includes the narrow single-choice result-dependent optimization described below. It requires an otherwise eligible uniquely ordered required `Exactly(1)` chain, a Pydantic request with at least one `FromRequest` binding, exactly one producer-backed choice and no other choice, supported immutable defaults and request/result/authenticated-context bindings, and exact full terminal response annotation identity. Historical v0.13.0 behavior remains agent-mediated for every producer-backed choice.
+
 ## Next milestones
 
 The ordering below prioritizes complete, enforceable contracts before expanding execution.
 These are planned acceptance criteria, not claims that the current release enforces them or
-promised release dates. Milestone 1 is completed in the 0.10.0 boundary above; the numbered
-sequence below preserves its follow-on milestones. No milestone adds an executor selection flag,
+promised release dates. Milestone 1 was completed in the 0.10.0 boundary. The release boundaries
+above complete the narrow milestone 2 slice for 0.14.0; broader orchestration and graph work
+remain planned. No milestone adds an executor selection flag,
 public graph, or handler body.
 
 ### 1. Contract enforcement and input/output hardening
@@ -205,198 +236,87 @@ include response serialization in the deadline or claim preemption of synchronou
 No remaining acceptance criteria are listed for this completed milestone. Follow-on result-chain
 work begins at milestone 2.
 
-### 2. Validated result chains and failure semantics
+### 2. Result-dependent execution with one producer-backed choice
 
-Status: a sequential-chain subset with one uniquely ready operation at each step is completed in 0.11.0. The remaining milestone expands beyond that subset and establishes broader failure/recovery semantics;
-it must preserve the exercised guarantees below.
+Completed in 0.14.0 (included from version 0.14.0): the narrow result-dependent optimization for one producer-backed choice in an otherwise eligible sequential chain. The 0.11.0, 0.12.0, and 0.13.0 boundaries above retain their historical semantics; in particular, published v0.13.0 chains with producer-backed choices remain agent-mediated, including singleton domains.
 
-Add private multi-operation execution semantics through a useful,
-framework-orchestrated endpoint. The first vertical slice should demonstrate a sequential
-required-operation chain that composes validated results into a final response without
-asking endpoint authors to write orchestration code. Keep the acceptance contract focused
-on the demonstrated behavior rather than promising a general graph API or fixing a public
-maximum chain length:
+The shipped 0.14.0 contract uses `FromResult` to pass only a producer's locally validated output into a downstream operation; the data dependency establishes result readiness. The terminal operation remains the explicit final-response producer and returns its canonical validated result.
+The complete chain is eligible only in the supported linear required-operation shape; there is no public maximum chain length.
+Exactly one producer-backed choice using `AgentChoice(from_result=producer)` is supported in the eligible linear required-`Exactly(1)` chain, with producer output `list[ConcreteModel]`. Selection remains scoped to the complete eligible chain, not a separately exposed subgraph.
+Every uniquely ready prefix operation executes before model resolution. If a producer returns no candidates, the existing fixed redacted unavailable-choice response occurs before model resolution or downstream work.
+For exactly one candidate, Summonpot selects the canonical validated member locally and continues without resolving or constructing a model.
+For multiple candidates, the configured model resolves lazily at that choice boundary; only bounded inert descriptions and opaque request-local tokens are exposed, with local membership verification before binding the exact canonical candidate.
+On the singleton path the fully resolved suffix executes without a model. With multiple candidates, the suffix continues through the existing agent-mediated chain in the same run. The terminal operation remains the canonical final-response producer; model-authored success claims are not a substitute.
+Eligibility requires a Pydantic request with at least one `FromRequest` binding, an existing uniquely ordered chain of at least two required `Exactly(1)` operations, exactly one producer-backed choice argument across the chain and no other choice, supported immutable defaults plus request/result/authenticated-context bindings, and exact full terminal response annotation identity. The producer must return the supported concrete-model list and precede the consumer. This narrows optimization eligibility only; all other admitted declarations keep their existing agent-mediated route. The 128-candidate and 65,536-character evidence limits apply even to singleton domains, and local selection passes canonical-member and receiving checks.
+The same authenticated context, validated request, results, reservations, stable tokens and absolute deadline carry across the model handoff. The prefix is not replayed and model history is not fabricated. Prefix effects may precede provider-configuration failure on the multiple-candidate path; lazy model resolution does not make the prefix side-effect-free or provide rollback.
+Bare callable capabilities and supported explicit declarations outside this optimization retain their existing agent-mediated path. Unsupported explicit contracts remain rejected at registration.
+Regression coverage verifies zero candidates, singleton execution with zero model resolution/construction/calls, and multiple candidates using the same endpoint/provider; producer effects precede model resolution, model resolution occurs only once for multiple candidates, and token forgery, stale tokens, output failure, timeout and downstream failure cannot authorize or replay effects.
 
-- Declare the fixed endpoint goal, typed request/response, and exact application-owned
-  operations in a useful chain. Keep the endpoint body declarative; Summonpot owns readiness,
-  invocation, validated-result transfer, and response production.
-- Use `FromResult` to pass only a producer's locally validated output into a downstream
-  operation. This data dependency itself establishes result readiness; use `after` when an
-  additional success-ordering dependency is required independently of data flow.
-- Make the terminal operation the explicit final-response producer: its declared output is
-  validated against the endpoint response contract and is the response returned to the
-  caller. Do not use a model-authored response as a substitute for a validated operation
-  result in this agent-mediated chain.
-- Resolve and validate the complete declared chain before any operation starts;
-  execute it sequentially, with stable dependency order and identity-keyed results.
-- Exercise a useful application-owned flow with two distinct operations, not merely a
-  pair of toy pass-through functions. Keep operation implementations application-owned;
-  Summonpot supplies the contract enforcement and orchestration.
+This 0.14.0 optimization does not alter the historical v0.11.0, v0.12.0, or v0.13.0 boundaries: each retains its historical behavior, including agent mediation for producer-backed choices. Outside this narrow optimization eligibility, the existing supported agent-mediated execution is preserved. No recurring bounds, rollback, cross-request idempotency, or endpoint-wide transactions are introduced.
 
-The first slice is deliberately bounded by its tested sequential acceptance cases. It does
-not claim a general graph executor, arbitrary parallelism, or arbitrary endpoint-wide
-transactionality. Version 0.11.0 chains are agent-mediated: Summonpot owns readiness,
-argument binding, validation, and result transfer, while the agent may choose which ready
-operation to invoke. From 0.12.0, fully resolved uniquely ordered chains meeting the exact
-Pydantic request, `FromRequest`, immutable binding, and terminal response predicates above
-run model-free. Any `AgentChoice` keeps execution agent-mediated. The broader model-free
-multi-operation compiler remains planned.
+### 3. Bounded orchestration with multiple choices and repeated calls
 
-Failure semantics ship with the chain, not as a later write-adapter feature:
+With the 0.14.0 single-choice linear slice complete, broaden orchestration to multiple declared choices and finite repeated calls with explicit result semantics:
 
-- Store validated results by operation identity for the lifetime of one request.
-- Inject `FromResult` values only after their declared producer succeeds.
-- Enforce `after` as a control dependency without treating it as a data binding.
-- Compile cycle checks, stable dependency order, and readiness before exposing or invoking
-  an operation.
-- Validate every operation output before a later operation can consume it.
-- Never replay the whole endpoint or fall back to a fresh model plan after an effectful
-  operation starts.
+- Define how each invocation is identified, how each validated result is selected and referenced, and how result provenance is preserved across repeated calls.
+- Enforce declared minimum and maximum call bounds against validated successes and starts respectively; reserve maximum capacity before application code and retain reservations for failed, cancelled, or uncertain starts.
+- Make readiness, ordering, choice membership, and result availability explicit at each invocation. Model retries cannot replay an effect or change the fixed endpoint goal.
+- Require one unambiguous terminal operation/result to satisfy the exact full endpoint response contract; distinguish operation success from response composition and model-authored claims.
+- Keep execution sequential until concurrency has explicit read-only, transaction, or idempotency semantics. Define partial completion and timeout uncertainty before allowing recovery or continuation.
+- Exercise multiple choices, repeated producer invocations, empty/unavailable candidate sets, bound exhaustion, failures between calls, and exact result-to-consumer provenance.
 
-Failure semantics ship with the chain, not as a later write-adapter feature:
+This milestone expands the legal orchestration contract; it does not itself promise a general graph compiler, arbitrary parallelism, durable execution, rollback, or exactly-once effects.
 
-- Record validated results and distinguish failure before invocation, completed operations,
-  partial completion, and an uncertain outcome after timeout.
-- Keep failed or uncertain starts reserved; final-output retries must not replay effects.
-- Bind authoritative success claims to validated results or typed write receipts. Required
-  use alone does not prove that model-authored response claims match an operation result.
-- Preserve application-provided idempotency keys and document retry responsibilities. Do not
-  imply rollback, endpoint-wide atomicity, or distributed exactly-once completion for arbitrary
-  callables.
-- Test partial failure and response-validation failure after a successful write.
-- Prove with invocation counters that if the second operation fails after the first has
-  completed, a retry or recovery attempt does not replay the first operation. Preserve
-  the completed result and failed/uncertain reservation for the request; never restart
-  the whole endpoint or ask a model to reconstruct a plan after effects begin.
+### 4. Broader private execution compiler
 
-Execution remains sequential initially. Parallel ready operations are deferred until
-idempotency, transaction, or read-only semantics make concurrency safe.
-
-### 3. Producer-constrained agent choices
-
-Completed in 0.11.0 for sequential chains; this does not enable general graphs
-or model-free multi-operation execution. `AgentChoice(from_result=producer)` is limited to
-a producer's locally validated `list[ConcreteModel]` and remains agent-mediated. The
-runtime:
-
-- exposes at most 128 candidate items and 65,536 JSON characters per binding, using inert
-  projected descriptions and opaque request-local tokens, not canonical result objects;
-  projection respects exclusions and aliases without application serializers;
-- maps the selected token to the exact canonical validated member and checks membership
-  locally, without Python equality as authority;
-- rejects empty, unavailable, or oversized sets with a fixed redacted 409 before model
-  decision and before downstream work; no extra model request is made.
-
-Primitive/untyped collections, direct unbounded choices inside chains, context, broader
-bounds, and general graphs remain unsupported. A two-or-more candidate choice still needs
-the agent runtime; `AgentChoice` in the original single-operation form is unchanged.
-
-### 4. Authenticated application context
-
-Activate `FromContext` only after the framework has an authenticated, application-owned
-context contract:
-
-- Context values come from immutable request-local framework state, never prompt text or
-  caller-controlled capability arguments.
-- Context types and missing-value behavior are validated before operation invocation.
-- Secrets remain hidden from model-visible signatures, schemas, descriptions, and errors.
-
-### 5. Broader bounds and private path classification
-
-Extend the identity-keyed invocation ledger and private plan after the required single-start
-slices are stable:
-
-- Enforce broader minimum and maximum call bounds against successful and started calls
-  respectively.
-- Preserve a maximum slot after a failure or uncertain timeout rather than assuming an
-  effect did not occur.
-- Distinguish complete paths, bounded choices, and impossible paths without exposing a
-  public graph API or stable classifier strings.
-- Keep unknown type relationships conservative without letting unknown branches erase
-  known contradictions.
-
-### 6. Broader deterministic execution compiler
-
-Version 0.12.0 adds the resolved sequential-chain slice described above. The remaining compiler work below extends beyond that narrow slice; historical v0.11.0 uses the agent runtime for all multi-operation chains.
-
-Select the least-powerful sufficient execution path for validated requests whose private
-plans contain more than the narrow walking skeleton:
+- Extend private compilation beyond the required single-start slices only after milestone 3 settles invocation and result semantics. Preserve the least-powerful sufficient execution rule:
 
 ```text
-one complete operation path
-→ deterministic executor
-
-unresolved declared agent-owned choice
-→ direct agent runtime
-
-no valid path
-→ typed deterministic error
+one complete legal path → deterministic execution
+bounded declared choice → agent-mediated execution
+no legal path → typed deterministic error
 ```
 
-This decision will use the fixed endpoint goal, validated request, private capability plan,
-and validated operation results. Callers will not send an `action` field or select an agent
-framework. Endpoint authors will not maintain separate deterministic and agentic handlers
-for the same goal:
+- Compile complete paths, unresolved choices, and impossible paths across supported non-linear dependency shapes without exposing a public graph API or stable classifier strings.
+- Keep argument and result provenance identity-keyed; validate operation outputs before consumption and use exact terminal response annotations.
+- Use conservative compatibility analysis: unknown type relationships remain unknown and cannot erase known contradictions.
+- Keep the runtime/compiler private. Callers do not select a path, send `action`, or gain capabilities through compilation.
+- Test branched dependencies, joins, cycles, disconnected operations, incompatible and unknown types, no-legal-path errors, deterministic zero-model paths, and choice-bearing agent paths.
 
-- A balance endpoint with one exact account lookup and calculation path can run deterministically.
-- An order-fulfilment endpoint can run deterministically when only one valid option remains.
-- The same order endpoint can use the direct agent runtime when several declared substitutions are valid and a semantic choice remains.
-- No executor may add capabilities, weaken validation, or change the response contract.
+No public graph API, arbitrary parallel scheduling, or handler-side orchestration is part of this milestone.
 
-### 7. Exact database operations
+### 5. Exact bounded database operations and transaction boundaries
 
-Add optional adapters for prepared operations after the common execution and failure
-boundaries are stable. Keep application callables sufficient without an adapter. Write
-adapters require validated receipts, explicit transaction/commit behavior, and idempotency
-policy; validate before committing and do not expose database authority:
+Add optional adapters only after execution and result semantics are stable. Application callables remain sufficient without an adapter. A target object flow is:
 
 ```text
 prepared SQLAlchemy statement or fixed SQLite specification
-→ framework-owned adapter and connection/session lifecycle
+→ framework-owned adapter and session/connection lifecycle
 → Required(...) or Depends(...) endpoint capability
-→ typed callable schema visible to the executor
+→ typed operation result or write receipt
 ```
 
-Target declarations will pass the bounded operation object into the endpoint—not a session,
-connection, or arbitrary query function:
+- Accept only exact prepared SQLAlchemy `Select`, `Insert`, `Update`, or `Delete` statement objects and fixed parameterized SQLite specifications; bind only declared parameters from validated request/result sources.
+- Return typed projections and constrained affected-row receipts. Never expose raw `Session`, `Engine`, `Connection`, cursor, editable SQL, or natural-language-to-SQL authority.
+- Define read lifecycle and write transaction boundaries explicitly: when a transaction begins, validates, commits, and rolls back; which failures are known pre-commit versus uncertain after commit; and how output validation relates to commit.
+- Make adapter ownership, connection/session cleanup, and transaction propagation explicit. Do not imply a cross-capability transaction unless the contract actually provides one.
+- Test bounded predicates and bind values, row-count constraints, output validation, commit/rollback boundaries, cleanup, cancellation, and commit uncertainty.
 
-```python
-customer = Required(
-    SQLAlchemyOperation(
-        statement=customer_select,
-        bind={"customer_id": FromRequest("customer_id")},
-        output=CustomerView,
-    )
-)
+Adapters are optional; they do not make arbitrary callables transactional or confer cross-request idempotency.
 
-receipt = Required(
-    SQLiteOperation(
-        sql=cancel_order_sql,
-        bind={"order_id": FromRequest("order_id")},
-        output=CancelReceipt,
-        exactly_one_row=True,
-    )
-)
-```
+### 6. Concrete recovery and long-running execution
 
-- SQLAlchemy `Select`, `Insert`, `Update`, and `Delete` statement objects.
-- Fixed parameterized SQLite operation specifications.
-- Framework-owned sessions, connections, transactions, and serialization.
-- Typed projections and affected-row constraints.
-- No raw `Session`, `Engine`, `Connection`, cursor, editable SQL, or natural-language-to-SQL capability.
+Build on explicit result semantics and transaction boundaries to support concrete recovery or long-running workloads. Do not build a generic durable workflow layer in advance of a demonstrated endpoint need.
 
-### 8. Broader receipts and recovery
+- Record invocation identity, validated completed results, failed starts, and uncertainty durably when a declared execution mode requires resumption.
+- Define idempotency keys and deduplication scope, checkpoint ownership, retry eligibility, cancellation, late results, and recovery authority. A timeout or worker cancellation is not proof that an external effect stopped.
+- Resume only from authoritative recorded results; never replay an uncertain effect without an application-defined idempotency/reconciliation decision.
+- Keep recovery paths within the endpoint's original declared capability set and exact response contract. Define typed outcomes for missing records, conflicts, authorization failures, adapter failures, and exhausted recovery.
+- Test process interruption around effect/record boundaries, duplicate delivery, concurrent resume, stale checkpoints, partial completion, and unknown outcomes.
 
-Build on the minimal receipts, partial-failure handling, and evidence-backed success rules
-required by result chains and write adapters. Extend them only for concrete application needs:
+This milestone does not promise distributed exactly-once effects. Transactionality, idempotency, and recovery guarantees must be stated at their actual scope.
 
-- Typed write receipts.
-- Successful-write requirements before accepting success responses.
-- Idempotency and transaction policies.
-- Typed mappings for authorization, missing records, conflicts, database failures, and exhausted recovery paths, building on the shipped 429/502/504 mappings for usage limits, provider failures, and timeouts.
-- Declared recovery paths that cannot expand endpoint authority.
-
-### 9. Optional execution harnesses
+### 7. Optional execution harnesses
 
 Defer larger internal executors until concrete applications require them. Keep the public
 endpoint contract stable and integrate an established durable engine rather than rebuilding
@@ -446,12 +366,12 @@ result-chain retrieval or producer-constrained choices:
 
 #### A2. Result-backed context and compaction
 
-Only after validated result chains and producer-constrained choices (milestones 2–3),
+Only after broader orchestration (milestone 3),
 extend A1 with result-backed context:
 
 - Keep canonical request/result state separate from model-visible working context and
   persistent memory. `FromContext` is not a prompt-history or memory-injection feature;
-  authenticated application context still requires milestone 4.
+  authenticated application context is already available under the 0.13.0 boundary above.
 - Assemble only the relevant, permitted evidence for the next legal decision. Start with
   bounded projections, pagination, and scoped retrieval of declared operation results;
   preserve exact canonical values for `FromResult` and producer-constrained choices.
@@ -467,7 +387,7 @@ extend A1 with result-backed context:
 
 ### B. Readiness-aware tool discovery and evidence selection
 
-Build on validated result chains and producer-constrained choices (milestones 2–3):
+Build on broader orchestration (milestone 3):
 
 - Expose or progressively discover only operations already declared and currently legal to
   invoke. Search does not add capabilities, select providers, or authorize an invocation.
@@ -484,7 +404,7 @@ Build on validated result chains and producer-constrained choices (milestones 2�
 
 ### C. Optional scoped continuity and persistent memory
 
-Only after authenticated application context (milestone 4), and only for endpoints whose
+Only after authenticated application context is available (included from 0.13.0), and only for endpoints whose
 contract declares continuity or memory access:
 
 - Keep stateless requests the default. Resolve session and memory scope from authenticated
