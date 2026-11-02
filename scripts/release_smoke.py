@@ -61,6 +61,18 @@ CASES = (
         {"text": "Summonpot keeps endpoint authority bounded.", "max_sentences": 2},
     ),
     ExampleCase(
+        "05_bounded_runtime.py",
+        "POST",
+        "/summaries/fast",
+        {"text": "Summonpot keeps endpoint authority bounded.", "max_sentences": 2},
+    ),
+    ExampleCase(
+        "04_http_methods.py",
+        "POST",
+        "/products",
+        {"customer_id": "smoke-customer", "sku": "notebook"},
+    ),
+    ExampleCase(
         "06_support_service/app.py",
         "POST",
         "/support",
@@ -85,6 +97,28 @@ CASES = (
         {"customerId": "customer-7"},
     ),
     ExampleCase(
+        "10_result_chain/app.py",
+        "POST",
+        "/reservations",
+        {"sku": "notebook", "quantity": 2, "idempotency_key": "smoke-10"},
+    ),
+    ExampleCase(
+        "11_linear_result_chain/app.py",
+        "POST",
+        "/reservations",
+        {"sku": "notebook", "quantity": 2, "idempotency_key": "smoke-11"},
+    ),
+    ExampleCase(
+        "12_producer_choice/app.py",
+        "POST",
+        "/orders",
+        {
+            "query": "blue notebook",
+            "order_id": "smoke-12",
+            "idempotency_key": "smoke-12",
+        },
+    ),
+    ExampleCase(
         "13_multiple_producer_choices/app.py",
         "POST",
         "/orders",
@@ -95,6 +129,15 @@ CASES = (
         "POST",
         "/notes",
         {"note_id": "smoke", "text": "persisted note", "idempotency_key": "smoke-key"},
+    ),
+    ExampleCase(
+        "14_bounded_audit/app.py",
+        "POST",
+        "/audits",
+        {"audit_id": "smoke-audit"},
+    ),
+    ExampleCase(
+        "15_repeated_stage/app.py", "POST", "/audits", {"audit_id": "smoke-stage"}
     ),
 )
 
@@ -244,13 +287,84 @@ summon = example.summon
     return wrapper
 
 
-def _verify_case(case: ExampleCase, examples_root: Path, workdir: Path) -> None:
+def _bounded_audit_smoke_wrapper(source: Path, workdir: Path) -> Path:
+    """Use real repeated runtime with a keyless, decision-only provider fixture."""
+    wrapper = workdir / "bounded_audit_smoke_app.py"
+    wrapper.write_text(
+        f"""import sys,json
+sys.path.append({str(source.parent)!r})
+import app as example
+from pydantic_ai.messages import ModelResponse,ModelRequest,UserPromptPart,ToolCallPart
+from pydantic_ai.models.function import FunctionModel
+from summonpot.runtime import Runtime
+
+def choose(messages,info):
+    assert not info.function_tools
+    assert len(info.output_tools)==1
+    assert set(info.output_tools[0].parameters_json_schema['properties'])=={{'decision','argument_0'}}
+    prompts=[p.content for m in messages if isinstance(m,ModelRequest) for p in m.parts if isinstance(p,UserPromptPart) and isinstance(p.content,str)]
+    starts=json.loads(prompts[0])['starts']
+    payload={{'decision':'invoke','argument_0':('stock','prices')[starts]}} if starts<2 else {{'decision':'finish'}}
+    return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name,payload)])
+example.summon._runtime=Runtime(model=FunctionModel(choose))
+summon=example.summon
+""",
+        encoding="utf-8",
+    )
+    return wrapper
+
+
+def _fixture_smoke_wrapper(
+    source: Path, workdir: Path, payload: dict[str, Any] | None
+) -> Path:
+    """Keep model-only routes keyless and copy real catalog receipts, never invent them."""
+    wrapper = workdir / "fixture_smoke_app.py"
+    wrapper.write_text(
+        f"""import importlib.util,sys,json
+from pydantic_ai.messages import ModelResponse,ModelRequest,ToolReturnPart,ToolCallPart
+from pydantic_ai.models.function import FunctionModel
+from summonpot.runtime import Runtime
+spec=importlib.util.spec_from_file_location('smoke_example',{str(source)!r})
+example=importlib.util.module_from_spec(spec)
+sys.modules[spec.name]=example
+spec.loader.exec_module(example)
+payload={payload!r}
+def model(messages,info):
+    if {source.name!r}=='05_bounded_runtime.py':
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name,{{'summary':'Keyless contract fixture.','key_points':['The configured HTTP contract completed.']}})])
+    results=[p.content for m in messages if isinstance(m,ModelRequest) for p in m.parts if isinstance(p,ToolReturnPart) and p.tool_name=='reserve_product']
+    if not results:
+        return ModelResponse(parts=[ToolCallPart('reserve_product',{{'customer_id':payload['customer_id'],'sku':payload['sku']}})])
+    result=results[-1]
+    if isinstance(result,str):result=json.loads(result)
+    return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name,result)])
+fixture=FunctionModel(model)
+class FixtureRuntime(Runtime):
+    def model_for(self,endpoint):
+        return fixture
+prior=example.summon._runtime
+example.summon._runtime=FixtureRuntime(retries=prior.retries,usage_limits=prior.usage_limits,timeout=prior.timeout)
+summon=example.summon
+""",
+        encoding="utf-8",
+    )
+    return wrapper
+
+
+def _verify_case(
+    case: ExampleCase, examples_root: Path, workdir: Path
+) -> dict[str, Any]:
     source = (examples_root / case.source).resolve()
     if not source.is_file():
         raise FileNotFoundError(source)
     served_source = (
         _support_smoke_wrapper(source, workdir)
         if case.source == "06_support_service/app.py"
+        else _bounded_audit_smoke_wrapper(source, workdir)
+        if case.source in {"14_bounded_audit/app.py", "15_repeated_stage/app.py"}
+        else _fixture_smoke_wrapper(source, workdir, case.payload)
+        if case.source == "05_bounded_runtime.py"
+        or (case.source == "04_http_methods.py" and case.method == "POST")
         else source
     )
 
@@ -260,8 +374,21 @@ def _verify_case(case: ExampleCase, examples_root: Path, workdir: Path) -> None:
         SUMMONPOT_MODEL="test",
         SUMMONPOT_ORDER_LOG=str(workdir / "orders.jsonl"),
         SUMMONPOT_TICKET_LOG=str(workdir / "tickets.jsonl"),
+        INVENTORY_DB=str(workdir / "inventory.sqlite3"),
     )
     auth_headers: dict[str, str] = {}
+    if case.source in {
+        "08_direct_execution.py",
+        "09_contract_boundaries/app.py",
+        "10_result_chain/app.py",
+        "11_linear_result_chain/app.py",
+        "12_producer_choice/app.py",
+    }:
+        environment["SUMMONPOT_MODEL"] = "invalid:no-provider"
+    if case.source == "14_bounded_audit/app.py":
+        environment["BOUNDED_AUDIT_DB"] = str(workdir / "bounded-audit.sqlite3")
+    if case.source == "15_repeated_stage/app.py":
+        environment["REPEATED_STAGE_DB"] = str(workdir / "repeated-stage.sqlite3")
     if case.source == "13_multiple_producer_choices/app.py":
         environment.update(
             MULTIPLE_CHOICE_DB=str(workdir / "multiple-choice.sqlite3"),
@@ -299,7 +426,58 @@ def _verify_case(case: ExampleCase, examples_root: Path, workdir: Path) -> None:
         )
         if success != 200:
             raise AssertionError(f"{case.source} success returned {success}: {body!r}")
-        json.loads(body)
+        response_body = json.loads(body)
+        side_effects: list[str] = []
+        if case.source == "15_repeated_stage/app.py":
+            with sqlite3.connect(environment["REPEATED_STAGE_DB"]) as db:
+                reports = db.execute(
+                    "SELECT report_json FROM audit_reports WHERE audit_id=?",
+                    ("smoke-stage",),
+                ).fetchall()
+                checks = db.execute(
+                    "SELECT check_name FROM audit_checks WHERE audit_id=? ORDER BY check_name",
+                    ("smoke-stage",),
+                ).fetchall()
+            assert len(reports) == 1 and json.loads(reports[0][0]) == response_body
+            assert checks == [("prices",), ("stock",)]
+            assert (
+                response_body["checks"] == ["prices", "stock"]
+                and response_body["finding_count"] == 2
+            )
+            side_effects.append(
+                "closed repeated stage and canonical persisted terminal report"
+            )
+        if case.source in {"10_result_chain/app.py", "11_linear_result_chain/app.py"}:
+            assert case.payload is not None
+            with sqlite3.connect(environment["INVENTORY_DB"]) as db:
+                db.row_factory = sqlite3.Row
+                receipt = dict(
+                    db.execute(
+                        "SELECT * FROM reservations WHERE idempotency_key=?",
+                        (case.payload["idempotency_key"],),
+                    ).fetchone()
+                )
+                assert receipt == response_body
+                assert (
+                    db.execute(
+                        "SELECT available FROM inventory WHERE sku='notebook'"
+                    ).fetchone()[0]
+                    == response_body["remaining"]
+                    == 23
+                )
+            side_effects.append("canonical SQLite reservation and exact stock")
+        if case.source == "12_producer_choice/app.py":
+            with sqlite3.connect(environment["INVENTORY_DB"]) as db:
+                row = db.execute(
+                    "SELECT item_id,remaining_stock FROM orders WHERE order_id='smoke-12'"
+                ).fetchone()
+                assert (
+                    row == ("B", 11) and response_body["candidate"]["identifier"] == "B"
+                )
+                assert db.execute(
+                    "SELECT stock FROM inventory WHERE item_id='B'"
+                ).fetchone() == (11,)
+            side_effects.append("singleton canonical SQLite order")
         if case.source == "13_multiple_producer_choices/app.py":
             with sqlite3.connect(environment["MULTIPLE_CHOICE_DB"]) as db:
                 rows = db.execute(
@@ -337,7 +515,7 @@ def _verify_case(case: ExampleCase, examples_root: Path, workdir: Path) -> None:
         if missing != 404:
             raise AssertionError(f"{case.source} missing route returned {missing}")
 
-        mismatch_method = "PUT" if case.method == "GET" else "GET"
+        mismatch_method = "PUT"
         mismatch_path = urllib.parse.urlsplit(case.path).path
         mismatch, _ = _request(base_url, mismatch_method, mismatch_path)
         if mismatch != 405:
@@ -367,21 +545,70 @@ def _verify_case(case: ExampleCase, examples_root: Path, workdir: Path) -> None:
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=5)
+        with socket.socket() as listener:
+            if listener.connect_ex(("127.0.0.1", port)) == 0:
+                raise AssertionError(f"owned listener {port} remains open")
+    return {
+        "source": case.source,
+        "method": case.method,
+        "path": case.path,
+        "status": success,
+        "body": response_body,
+        "invalid_status": invalid,
+        "missing_status": missing,
+        "method_mismatch_status": mismatch,
+        "side_effects": side_effects,
+        "listener_closed": True,
+        "lane": "keyless contract fixture or explicit no-model path; not live-provider quality",
+    }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--examples-root", type=Path, required=True)
+    parser.add_argument(
+        "--report", type=Path, help="Write actual HTTP acceptance results as JSON"
+    )
     arguments = parser.parse_args()
+    import summonpot
 
-    _verify_installed_version()
-
+    version = _verify_installed_version()
+    applications = {case.source for case in CASES}
+    discovered = {
+        path.relative_to(arguments.examples_root).as_posix()
+        for path in arguments.examples_root.rglob("*.py")
+        if path.parent == arguments.examples_root or path.name == "app.py"
+    }
+    if applications != discovered:
+        raise AssertionError(
+            f"example verifier inventory mismatch: {applications ^ discovered}"
+        )
+    results: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="summonpot-release-smoke-") as directory:
-        workdir = Path(directory)
-        for case in CASES:
-            _verify_case(case, arguments.examples_root, workdir)
-
-    print(f"verified {len(CASES)} example applications through the installed CLI")
+        for index, case in enumerate(CASES):
+            workdir = Path(directory) / f"case-{index}"
+            workdir.mkdir()
+            results.append(_verify_case(case, arguments.examples_root, workdir))
+            if arguments.report is not None:
+                arguments.report.parent.mkdir(parents=True, exist_ok=True)
+                arguments.report.write_text(
+                    json.dumps(
+                        {
+                            "version": version,
+                            "module_path": summonpot.__file__,
+                            "cli": _cli_path(),
+                            "application_count": len(applications),
+                            "route_count": len(CASES),
+                            "cases": results,
+                        },
+                        indent=2,
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+    print(
+        f"verified {len(applications)} example applications ({len(CASES)} HTTP routes) through the installed CLI"
+    )
 
 
 if __name__ == "__main__":

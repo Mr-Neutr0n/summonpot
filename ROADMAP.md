@@ -220,7 +220,7 @@ Version 0.14.0 includes the narrow single-choice result-dependent optimization d
 
 ## Current source, not yet released
 
-The current source implements an unreleased framework-owned progression slice across one or more producer-backed choices in an otherwise eligible uniquely ordered chain. Eligibility remains a Pydantic request with at least one `FromRequest`, at least two required `Exactly(1)` operations, supported request/result/authenticated-context bindings or immutable defaults, and exact full terminal response annotation identity. The selector receives only a safe request projection and bounded inert evidence for the current ambiguous binding(s); it has no business-function tools, principal or ledger. Every current consumer domain is checked before selecting or starting that consumer. Singleton choices bind canonical members locally; ambiguous bindings are selected together from strict opaque-token slots, then the shared invocation kernel validates and invokes the consumer. The framework-owned progression continues locally through singleton frontiers and returns the canonical validated terminal result without model-authored completion. All frontiers and corrections share request/token/cost usage, effective limits and one deadline; the model resolves once, lazily, at first ambiguity. Explicit `tool_calls_limit` and `allow_direct=False` preserve the legacy route. No durable cross-request resume, rollback, effect replay, repeated calls, general graph compiler or public selector is added. This is a partial milestone 3 implementation, not milestone completion and not a published v0.14.0 behavior. Bounds remain 128 candidates and 65,536 evidence characters per binding. Prefix effects may precede provider-configuration failure; there is no rollback or cross-request replay guarantee.
+The current source implements an unreleased framework-owned progression slice across one or more producer-backed choices in an otherwise eligible uniquely ordered chain. Eligibility remains a Pydantic request with at least one `FromRequest`, at least two required `Exactly(1)` operations, supported request/result/authenticated-context bindings or immutable defaults, and exact full terminal response annotation identity. The selector receives only a safe request projection and bounded inert evidence for the current ambiguous binding(s); it has no business-function tools, principal or ledger. Every current consumer domain is checked before selecting or starting that consumer. Singleton choices bind canonical members locally; ambiguous bindings are selected together from strict opaque-token slots, then the shared invocation kernel validates and invokes the consumer. The framework-owned progression continues locally through singleton frontiers and returns the canonical validated terminal result without model-authored completion. All frontiers and corrections share request/token/cost usage, effective limits and one deadline; the model resolves once, lazily, at first ambiguity. Explicit `tool_calls_limit` and `allow_direct=False` preserve the legacy route. This producer-choice chain route adds no durable cross-request resume, rollback, effect replay, repeated calls, general graph compiler or public selector. This is a partial milestone 3 implementation, not milestone completion and not a published v0.14.0 behavior. Bounds remain 128 candidates and 65,536 evidence characters per binding. Prefix effects may precede provider-configuration failure; there is no rollback or cross-request replay guarantee.
 
 ## Next milestones
 
@@ -260,16 +260,24 @@ This 0.14.0 optimization does not alter the historical v0.11.0, v0.12.0, or v0.1
 
 ### 3. Bounded orchestration with multiple choices and repeated calls
 
-The current source implements only the multiple producer-backed choice-binding slice described above. This milestone is **partially implemented, not complete**. The remaining planned work broadens orchestration to finite repeated calls with explicit result semantics:
+The current source implements framework-owned producer-choice progression and a narrow sole-operation slice of finite repeated calls. This milestone is **partially implemented, not complete**. Both additions are unreleased; historical version boundaries above remain unchanged.
 
-- Define how each invocation is identified, how each validated result is selected and referenced, and how result provenance is preserved across repeated calls.
-- Enforce declared minimum and maximum call bounds against validated successes and starts respectively; reserve maximum capacity before application code and retain reservations for failed, cancelled, or uncertain starts.
-- Make readiness, ordering, choice membership, and result availability explicit at each invocation. Model retries cannot replay an effect or change the fixed endpoint goal.
-- Require one unambiguous terminal operation/result to satisfy the exact full endpoint response contract; distinguish operation success from response composition and model-authored claims.
-- Keep execution sequential until concurrency has explicit read-only, transaction, or idempotency semantics. Define partial completion and timeout uncertainty before allowing recovery or continuation.
-- Exercise multiple choices, repeated producer invocations, empty/unavailable candidate sets, bound exhaustion, failures between calls, and exact result-to-consumer provenance.
+The repeated-call slice covers one required typed operation with a Pydantic request, at least one `FromRequest`, direct closed string-valued `Literal` choices, supported request/context sources or immutable defaults, exact full operation-output/endpoint-response annotation identity, and positive finite effective bounds. Summonpot owns the sequential loop, reserves starts before application code, counts validated successes for the minimum, retains per-invocation identity/results and failed or uncertain reservations, and returns the final successful canonical invocation result after legal finish or automatic maximum completion. Any later failure aborts; an earlier success is not a fallback response. Explicit function-tool quotas reject this new shape before work rather than silently weakening limits.
 
-This milestone expands the legal orchestration contract; it does not itself promise a general graph compiler, arbitrary parallelism, durable execution, rollback, or exactly-once effects.
+The remaining work in milestone 3 is broader than this one admitted two-operation form:
+
+- Repeated consumers and richer feedback workflows, including inspect/correct/verify; this slice does not implement them.
+- Producer-backed choices from repeated outputs, arbitrary historical invocation references, repeated-result aggregation, and multiple or nested repeated stages.
+- General graphs, cycles, parallel scheduling, durable execution/resumption, rollback, or distributed exactly-once effects.
+
+The new narrow contract addresses only `FromResult(..., invocation="final")` from one
+closed repeated producer to its single terminal consumer; see the [focused source contract](docs/repeated-stage-results.added.md). Minimum/maximum semantics enforce declared bounds against
+validated successes and starts respectively; retain reservations for failed, cancelled, or uncertain starts.
+Model retries cannot replay an effect. Every supported extension must preserve
+one unambiguous terminal operation/result and its invocation identity. Keep execution sequential
+until partial completion and timeout uncertainty, cancellation, and recovery have explicit semantics. Existing sole-operation repetition, Exactly(1) chains,
+and producer-choice declarations are not downgraded or reinterpreted. Existing `Required`
+marker normalization remains unchanged: its effective minimum is at least one.
 
 ### 4. Broader private execution compiler
 

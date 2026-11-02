@@ -29,6 +29,8 @@ from summonpot._output_validation import (
 from summonpot._validation import (
     _chain_contract_tool_indices,
     _enforced_contract_tool_index,
+    _repeated_contract_tool_index,
+    _repeated_stage_indices,
 )
 from summonpot.contracts import AgentChoice, FromContext, FromRequest, FromResult
 from summonpot.models import EndpointDef, ParamDef, ToolDef
@@ -55,6 +57,7 @@ class _CompiledBinding:
     source: Any
     validator: _CompiledReceivingValidator | None
     producer_identity: int | None = None
+    final_invocation: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +132,7 @@ class _CompiledTool:
     output_projection: _ProjectionSchema | None = None
     output_definitions: Mapping[str, _ProjectionSchema] | None = None
     predecessors: tuple[int, ...] = ()
+    repeated: bool = False
 
     @property
     def visible_signature(self) -> inspect.Signature:
@@ -182,6 +186,8 @@ class _CompiledEndpoint:
     response_producer: int | None = None
     direct_chain_order: tuple[int, ...] | None = None
     result_dependent_order: tuple[int, ...] | None = None
+    repeated_tool: int | None = None
+    repeated_terminal: int | None = None
     context: _CompiledContext | None = field(default=None, repr=False)
 
 
@@ -1011,12 +1017,29 @@ def _registered_plan(endpoint: EndpointDef) -> _CompiledEndpoint | None:
 
 
 @dataclass(slots=True)
+class _InvocationState:
+    ordinal: int
+    result: Any = None
+    outcome: str = "running"
+
+
+@dataclass(frozen=True, slots=True)
+class _ClosedStage:
+    producer_identity: int
+    ordinal: int
+    result: Any
+
+
+@dataclass(slots=True)
 class _OperationState:
     started: int = 0
     running: int = 0
     succeeded: int = 0
     result: Any = None
     outcome: str = "not_started"
+    invocations: list[_InvocationState] = field(default_factory=list)
+    requires_closure: bool = False
+    closed: _ClosedStage | None = None
 
 
 @dataclass(slots=True)
@@ -1064,6 +1087,40 @@ def _compile_endpoint(
         if output is not None:
             _reject_ambiguous_object_namespaces(TypeAdapter(output).core_schema)
     enforce_index = _enforced_contract_tool_index(source_tools)
+    stage_indices = _repeated_stage_indices(source_tools)
+    repeated_index = (
+        stage_indices[0]
+        if stage_indices
+        else _repeated_contract_tool_index(source_tools)
+    )
+    if stage_indices is not None:
+        producer_contract = source_tools[stage_indices[0]].contract
+        terminal_contract = source_tools[stage_indices[1]].contract
+        assert producer_contract is not None and terminal_contract is not None
+        response = endpoint.output_annotation or endpoint.output_model
+        if (
+            endpoint.input_model is None
+            or endpoint.output_model is None
+            or not isinstance(producer_contract.output, type)
+            or not issubclass(producer_contract.output, BaseModel)
+            or producer_contract.output is response
+            or terminal_contract.output is not response
+        ):
+            raise TypeError(
+                "Repeated stages require a Pydantic intermediate and a distinct exact terminal response."
+            )
+    if repeated_index is not None and stage_indices is None:
+        repeated_contract = source_tools[repeated_index].contract
+        assert repeated_contract is not None
+        if (
+            endpoint.input_model is None
+            or endpoint.output_model is None
+            or repeated_contract.output
+            is not (endpoint.output_annotation or endpoint.output_model)
+        ):
+            raise TypeError(
+                "Repeated execution requires Pydantic request/response models and exact full response annotation."
+            )
     chain_indices = _chain_contract_tool_indices(source_tools)
     terminal_contract = (
         source_tools[chain_indices[-1]].contract if chain_indices else None
@@ -1101,11 +1158,14 @@ def _compile_endpoint(
         _compile_tool(
             tool,
             index,
-            enforce=index == enforce_index
-            or bool(chain_indices and index in chain_indices),
-            snapshot_defaults=index == direct_index
-            or bool(chain_indices and index in chain_indices),
+            enforce=index in (enforce_index, repeated_index)
+            or bool(chain_indices and index in chain_indices)
+            or bool(stage_indices and index in stage_indices),
+            snapshot_defaults=index in (direct_index, repeated_index)
+            or bool(chain_indices and index in chain_indices)
+            or bool(stage_indices and index in stage_indices),
             operation_identities=operation_identities,
+            repeated=index == repeated_index,
         )
         for index, tool in enumerate(source_tools)
     )
@@ -1143,6 +1203,8 @@ def _compile_endpoint(
         path_parameter_names=tuple(endpoint.path_parameter_names),
         tools=tools,
         direct_tool=direct_index,
+        repeated_tool=repeated_index,
+        repeated_terminal=(stage_indices[1] if stage_indices else None),
         response_producer=(chain_indices[-1] if chain_indices else None),
         direct_chain_order=direct_chain_order,
         result_dependent_order=(
@@ -1791,6 +1853,7 @@ def _compile_tool(
     enforce: bool,
     snapshot_defaults: bool,
     operation_identities: Mapping[Any, int] | None = None,
+    repeated: bool = False,
 ) -> _CompiledTool:
     operation_identities = {} if operation_identities is None else operation_identities
     signature, annotations = _resolved_signature(tool.fn)
@@ -1825,6 +1888,7 @@ def _compile_tool(
                 _compile_receiving_validator(signature.parameters[name].annotation)
                 if (
                     isinstance(source, (FromRequest, FromResult, FromContext))
+                    or (repeated and type(source) is AgentChoice)
                     or (
                         isinstance(source, AgentChoice)
                         and source.from_result is not None
@@ -1840,6 +1904,7 @@ def _compile_tool(
                 if isinstance(source, FromResult)
                 or (isinstance(source, AgentChoice) and source.from_result is not None)
                 else None,
+                type(source) is FromResult and source.invocation == "final",
             )
             for name, source in contract.bind.items()
         )
@@ -1884,6 +1949,7 @@ def _compile_tool(
             else None
         ),
         enforce_bound_exactly_once=enforce,
+        repeated=repeated,
         output_projection=output_projection,
         output_definitions=output_definitions,
         predecessors=tuple(
@@ -2001,5 +2067,12 @@ def _new_run(plan: _CompiledEndpoint, params: Mapping[str, Any]) -> _EndpointRun
     request = params.typed if isinstance(params, _RequestValues) else params
     return _EndpointRun(
         request=request,
-        states=[_OperationState() for _ in plan.tools],
+        states=[
+            _OperationState(
+                requires_closure=(
+                    plan.repeated_terminal is not None and index == plan.repeated_tool
+                )
+            )
+            for index, _ in enumerate(plan.tools)
+        ],
     )

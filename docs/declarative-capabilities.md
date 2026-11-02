@@ -156,6 +156,57 @@ previous supported behavior. Prefix effects may precede lazy provider-configurat
 there is no rollback, effect replay, durable cross-request resume, repeated-call support,
 general graph compiler or public selector. Historical release sections are unchanged.
 
+## Current source: bounded repeated calls (unreleased)
+
+The minimum is the effective bound after existing marker normalization: `Required(op, calls=AtMost(3))` still requires at least one validated success. Optional/zero-success execution is not admitted.
+
+The repeated-call slice admits one explicitly required, typed operation with finite positive
+bounds `1 <= minimum <= maximum` and `maximum > 1`, a Pydantic request with at least one
+`FromRequest`, and at least one direct `AgentChoice` bound to closed `Literal[str]` choices.
+Remaining inputs use supported request/context bindings or immutable defaults, and the
+operation's full output annotation exactly matches the endpoint response annotation. No
+producer choice, `FromResult`, ordering, second capability, zero minimum, unbounded call,
+implicit batch, or general graph is included. Existing exactly-once and producer-choice
+routes retain their current behavior. See the [bounded repeated-calls contract](bounded-repeated-calls.added.md).
+
+Summonpot owns sequential invocation and enforces legal finish decisions; business functions are not
+provider tools. Selector arguments are locally validated. Starts are bounded atomically,
+minimum counts validated successes, and reaching the maximum finalizes automatically without
+a model acknowledgment. The response is the canonical result of the final successful
+invocation only; any invocation failure aborts, with no earlier-success fallback or aggregate
+collector. One shared usage budget and deadline span decisions; model resolution is lazy.
+The new shape rejects explicit `tool_calls_limit` before provider resolution or application
+effects, with no repeated-call fallback. Previous-result evidence is capped at 65,536
+characters per decision; bounded caller request data and declared evidence may be disclosed
+to the selector, but no principal or full result ledger is implicitly exposed.
+
+## Current source: repeated stage with final-result consumer (unreleased)
+
+The current source admits a narrow two-operation sequence: one required repeated producer,
+then one required `Exactly(1)` terminal consumer. The producer uses positive finite bounds
+(`minimum >= 1`, `maximum > 1`), a Pydantic request with at least one `FromRequest`, direct
+plain-string `Literal` choices, and supported request/context bindings or immutable defaults.
+Its validated Pydantic output is an intermediate type, distinct from the endpoint response.
+The terminal operation has no choices, consumes at least one explicit
+`FromResult(producer, field, invocation="final")`, and returns the exact full endpoint
+response annotation. Its other inputs use supported request/context/default sources.
+
+`invocation="final"` addresses the final successful invocation of a closed repeated stage.
+Unqualified `FromResult(producer, field)` retains its single-invocation meaning and is rejected
+for repeated producers; selectors other than `"final"` are unsupported. All final fields
+come from one immutable closure record containing producer identity, invocation ordinal and
+canonical validated result. The stage closes only after the effective minimum succeeds, no
+invocation is running, and the selected final invocation succeeded. The model may legally
+finish or maximum completion closes automatically without another acknowledgment. Terminal
+readiness does not follow from meeting the minimum alone. Failure, cancellation or uncertain
+outcome after any earlier success aborts; no earlier-result fallback is allowed.
+
+This is a current-source, unreleased shape; published v0.14.0 is unchanged. It does not add
+aggregated repeated results, arbitrary invocation selectors, repeated consumers, producer
+choices from repeated results, optional/unbounded/multiple repeated stages, general graphs,
+cycles, parallelism, or durable resume. The inspect/correct/verify workflow is not thereby
+implemented. See the focused [repeated-stage result contract](repeated-stage-results.added.md).
+
 ## Deterministic and agentic execution
 
 Capabilities are deterministic operations in both modes. The difference is whether execution still has an unresolved legal choice:
